@@ -87,8 +87,17 @@ export async function deleteApprovedExactGroup(
   }
 
   if (selected.length > 0) {
-    context.db.prepare(`UPDATE duplicate_groups SET status = 'completed', reviewed_at = ? WHERE id = ?`)
-      .run(Date.now(), groupId);
+    const remaining = context.db.prepare(`
+      SELECT COUNT(*) AS count
+      FROM duplicate_group_items dgi
+      JOIN photos p ON p.id = dgi.photo_id
+      WHERE dgi.group_id = ?
+        AND dgi.recommended_keep = 0
+        AND p.deleted_remote_at IS NULL
+    `).get(groupId) as { count: number };
+    context.db.prepare(`
+      UPDATE duplicate_groups SET status = ?, reviewed_at = ? WHERE id = ?
+    `).run(remaining.count === 0 ? "completed" : "pending", Date.now(), groupId);
   }
   return { deleted: selected.length, reclaimedBytes };
 }
