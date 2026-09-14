@@ -8,7 +8,7 @@ on:
 jobs:
   validate:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -20,3 +20,17 @@ jobs:
         run: npm install --no-audit --no-fund
       - name: Tests
         run: npm test
+      - name: Lint
+        if: github.event_name == 'pull_request' || contains(github.event.head_commit.message, '[full]')
+        run: npm run lint
+      - name: Typecheck
+        if: github.event_name == 'pull_request' || contains(github.event.head_commit.message, '[full]')
+        run: npm run typecheck
+      - name: Build
+        if: github.event_name == 'pull_request' || contains(github.event.head_commit.message, '[full]')
+        run: npm run build
+        env:
+          DEMO_MODE: "1"
+      - name: Docker build
+        if: github.event_name == 'pull_request' || contains(github.event.head_commit.message, '[full]')
+        run: docker build -t qeo-onedrive-photo-cleaner:ci .
