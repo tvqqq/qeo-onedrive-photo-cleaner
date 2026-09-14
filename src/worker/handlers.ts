@@ -1,5 +1,7 @@
 import type { AppDatabase } from "@/lib/db/client";
+import { ZeroShotClassifier } from "@/lib/classification/classifier";
 import { ClipService } from "@/lib/classification/clip";
+import { runClassificationJob } from "@/lib/classification/service";
 import { runExactDuplicateJob } from "@/lib/duplicates/exact";
 import { runSimilarPhotoJob } from "@/lib/duplicates/similar";
 import { env } from "@/lib/env";
@@ -11,6 +13,7 @@ import { DemoDriveApi } from "@/lib/scan/demo";
 import { runScanJob, type ScanMode } from "@/lib/scan/service";
 
 const clipService = new ClipService();
+const zeroShotClassifier = new ZeroShotClassifier();
 
 function driveApi() {
   return env.DEMO_MODE ? new DemoDriveApi() : new DriveApi(new GraphClient(getAccessToken));
@@ -28,6 +31,9 @@ export async function dispatchJob(db: AppDatabase, job: JobRecord): Promise<void
       return;
     case "find-similar":
       await runSimilarPhotoJob({ db, drive: driveApi(), clip: clipService }, job.id);
+      return;
+    case "classify":
+      await runClassificationJob({ db, drive: driveApi(), classifier: zeroShotClassifier }, job.id);
       return;
     default:
       throw new Error(`Job type ${job.type} is not implemented yet`);
