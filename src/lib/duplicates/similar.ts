@@ -1,6 +1,10 @@
 import { createHash } from "node:crypto";
 import sharp from "sharp";
 import type { AppDatabase } from "@/lib/db/client";
+import { cosineSimilarity } from "@/lib/classification/clip";
+import { env } from "@/lib/env";
+import { updateJobProgress } from "@/lib/jobs/repository";
+import { getThumbnailPath, type ThumbnailDriveApi } from "@/lib/thumbnails/cache";
 
 const HASH_WIDTH = 9;
 const HASH_HEIGHT = 8;
@@ -181,4 +185,121 @@ export function persistSimilarGroups(db: AppDatabase, pairs: SimilarCandidatePai
     db.exec("ROLLBACK");
     throw error;
   }
+}
+
+export interface SimilarJobContext {
+  db: AppDatabase;
+  drive: ThumbnailDriveApi;
+  clip: { embedImage(path: string): Promise<Float32Array> };
+  dataDir?: string;
+}
+
+export interface SimilarJobOptions {
+  dHashThreshold?: number;
+  clipThreshold?: number;
+}
+
+type SimilarPhotoRow = {
+  id: string;
+  drive_item_id: string;
+  etag: string | null;
+};
+
+type StoredFeatureRow = {
+  feature_etag: string | null;
+  dhash: string | null;
+  clip_embedding: Uint8Array | null;
+};
+
+function embeddingBlob(value: Float32Array): Uint8Array {
+  return new Uint8Array(value.buffer.slice(value.byteOffset, value.byteOffset + value.byteLength));
+}
+
+function readEmbedding(db: AppDatabase, photoId: string): Float32Array | null {
+  const row = db.prepare("SELECT clip_embedding FROM photo_features WHERE photo_id = ?").get(photoId) as
+    | { clip_embedding: Uint8Array | null }
+    | undefined;
+  if (!row?.clip_embedding) return null;
+  const copy = Uint8Array.from(row.clip_embedding);
+  return new Float32Array(copy.buffer);
+}
+
+async function ensurePhotoFeatures(context: SimilarJobContext, photo: SimilarPhotoRow): Promise<void> {
+  const existing = context.db.prepare(`
+    SELECT feature_etag, dhash, clip_embedding FROM photo_features WHERE photo_id = ?
+  `).get(photo.id) as StoredFeatureRow | undefined;
+  if (
+    existing &&
+    existing.feature_etag === photo.etag &&
+    existing.dhash !== null &&
+    existing.clip_embedding !== null
+  ) {
+    return;
+  }
+
+  const path = await getThumbnailPath(
+    { driveItemId: photo.drive_item_id, etag: photo.etag },
+    context.drive,
+    context.dataDir ?? env.DATA_DIR,
+  );
+  const dHash = await computeDHash(path);
+  const bands = splitDHashBands(dHash);
+  const embedding = await context.clip.embedImage(path);
+  const now = Date.now();
+
+  context.db.prepare(`
+    INSERT INTO photo_features(
+      photo_id,dhash,lsh_band_0,lsh_band_1,lsh_band_2,lsh_band_3,
+      clip_embedding,feature_etag,updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(photo_id) DO UPDATE SET
+      dhash = excluded.dhash,
+      lsh_band_0 = excluded.lsh_band_0,
+      lsh_band_1 = excluded.lsh_band_1,
+      lsh_band_2 = excluded.lsh_band_2,
+      lsh_band_3 = excluded.lsh_band_3,
+      clip_embedding = excluded.clip_embedding,
+      feature_etag = excluded.feature_etag,
+      updated_at = excluded.updated_at
+  `).run(
+    photo.id,
+    dHash.toString(16).padStart(16, "0"),
+    ...bands,
+    embeddingBlob(embedding),
+    photo.etag,
+    now,
+  );
+}
+
+export async function runSimilarPhotoJob(
+  context: SimilarJobContext,
+  jobId: string,
+  options: SimilarJobOptions = {},
+): Promise<void> {
+  const dHashThreshold = options.dHashThreshold ?? 8;
+  const clipThreshold = options.clipThreshold ?? 0.94;
+  const photos = context.db.prepare(`
+    SELECT id, drive_item_id, etag
+    FROM photos
+    WHERE deleted_remote_at IS NULL
+    ORDER BY id
+  `).all() as SimilarPhotoRow[];
+
+  let processed = 0;
+  for (const photo of photos) {
+    await ensurePhotoFeatures(context, photo);
+    processed += 1;
+    updateJobProgress(context.db, jobId, processed, photos.length);
+  }
+
+  const confirmed: SimilarCandidatePair[] = [];
+  for (const pair of findSimilarCandidates(context.db, dHashThreshold)) {
+    const left = readEmbedding(context.db, pair.leftPhotoId);
+    const right = readEmbedding(context.db, pair.rightPhotoId);
+    if (!left || !right) continue;
+    const score = cosineSimilarity(left, right);
+    if (score < clipThreshold) continue;
+    confirmed.push({ ...pair, clipSimilarity: score });
+  }
+  persistSimilarGroups(context.db, confirmed);
 }
