@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
-import { access, mkdir, rename, unlink, writeFile } from "node:fs/promises";
+import { access, mkdir, readdir, rename, rm, unlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { env } from "@/lib/env";
 
@@ -47,6 +47,23 @@ export async function getThumbnailPath(
     if (!(await exists(finalPath))) throw error;
   }
   return finalPath;
+}
+
+export async function clearThumbnailCache(
+  dataDir = env.DATA_DIR,
+): Promise<{ removedFiles: number }> {
+  const directory = join(dataDir, "cache", "thumbnails");
+  let removedFiles = 0;
+  try {
+    removedFiles = (await readdir(directory, { withFileTypes: true }))
+      .filter((entry) => entry.isFile())
+      .length;
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    if (code !== "ENOENT") throw error;
+  }
+  await rm(directory, { recursive: true, force: true });
+  return { removedFiles };
 }
 
 export function detectImageMime(bytes: Uint8Array): string {
