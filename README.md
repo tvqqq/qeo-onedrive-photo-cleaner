@@ -110,7 +110,7 @@ Default similar-photo thresholds are conservative:
 ## Local development
 
 ```bash
-npm install
+npm ci
 npm run dev
 ```
 
