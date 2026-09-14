@@ -1,3 +1,5 @@
+export { listCategoryReviewQueue } from "@/lib/classification/review";
+
 import type { AppDatabase } from "@/lib/db/client";
 import { classifyByRule, type ClassificationSuggestion } from "@/lib/classification/rules";
 import {
