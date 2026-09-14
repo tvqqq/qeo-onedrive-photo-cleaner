@@ -10,12 +10,21 @@ export interface CategoryReviewPhoto {
   path: string;
 }
 
+export interface CategoryReviewLabel {
+  slug: CategorySlug;
+  name: string;
+  source: string;
+  confidence: number | null;
+}
+
 export function CategoryReviewCard({
   photo,
   selectedSlugs,
+  labels,
 }: {
   photo: CategoryReviewPhoto;
   selectedSlugs: CategorySlug[];
+  labels: CategoryReviewLabel[];
 }) {
   const initial = new Set<CategorySlug>(selectedSlugs);
   const [selected, setSelected] = useState(() => new Set(initial));
@@ -56,10 +65,25 @@ export function CategoryReviewCard({
     <article className="grid gap-5 rounded-xl border bg-white p-5 md:grid-cols-[180px_1fr]">
       <PhotoThumb photoId={photo.photoId} alt={photo.name} className="w-full" />
       <div className="space-y-4">
-        <div>
-          <h2 className="font-medium">{photo.name}</h2>
-          <p className="text-sm text-gray-500">{photo.path}</p>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="font-medium">{photo.name}</h2>
+            <p className="text-sm text-gray-500">{photo.path}</p>
+          </div>
+          <span className="rounded-full bg-amber-100 px-2 py-1 text-xs font-medium text-amber-900">Needs review</span>
         </div>
+        {labels.length > 0 ? (
+          <div className="flex flex-wrap gap-2 text-xs text-gray-600">
+            {labels.map((label) => (
+              <span key={label.slug} className="rounded-full border px-2 py-1">
+                {label.name} · {label.source}
+                {label.confidence === null ? "" : ` · ${Math.round(label.confidence * 100)}%`}
+              </span>
+            ))}
+          </div>
+        ) : (
+          <p className="text-xs text-gray-500">No suggested labels yet.</p>
+        )}
         <div className="flex flex-wrap gap-2">
           {TAXONOMY.map((slug) => (
             <label key={slug} className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm">
