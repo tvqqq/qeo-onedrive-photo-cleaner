@@ -21,10 +21,8 @@ jobs:
       - name: Tests
         run: npm test
       - name: Lint
-        if: github.event_name == 'pull_request' || contains(github.event.head_commit.message, '[full]')
         run: npm run lint
       - name: Typecheck
-        if: github.event_name == 'pull_request' || contains(github.event.head_commit.message, '[full]')
         run: npm run typecheck
       - name: Build
         if: github.event_name == 'pull_request' || contains(github.event.head_commit.message, '[full]')
