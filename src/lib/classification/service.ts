@@ -1,11 +1,14 @@
 import type { AppDatabase } from "@/lib/db/client";
-import type { ClassificationSuggestion } from "@/lib/classification/rules";
+import { classifyByRule, type ClassificationSuggestion } from "@/lib/classification/rules";
 import {
   CATEGORY_NAMES,
   TAXONOMY,
   isCategorySlug,
   type CategorySlug,
 } from "@/lib/classification/taxonomy";
+import { env } from "@/lib/env";
+import { updateJobProgress } from "@/lib/jobs/repository";
+import { getThumbnailPath, type ThumbnailDriveApi } from "@/lib/thumbnails/cache";
 
 export interface ModelScore {
   label: string;
@@ -17,6 +20,23 @@ export interface ManualReviewInput {
   remove: string[];
   markReviewed?: boolean;
 }
+
+export interface ClassificationJobContext {
+  db: AppDatabase;
+  drive: ThumbnailDriveApi;
+  classifier: {
+    classify(path: string, candidateLabels: string[]): Promise<ModelScore[]>;
+  };
+  dataDir?: string;
+}
+
+type ClassifiablePhotoRow = {
+  id: string;
+  drive_item_id: string;
+  name: string;
+  path: string;
+  etag: string | null;
+};
 
 export function ensureTaxonomy(db: AppDatabase): void {
   const insert = db.prepare(`
@@ -55,7 +75,6 @@ export function writeAutomaticCategories(
   suggestions: ClassificationSuggestion[],
 ): void {
   ensureTaxonomy(db);
-  const now = Date.now();
   db.exec("BEGIN IMMEDIATE");
   try {
     db.prepare(`
@@ -131,5 +150,41 @@ export function applyManualReview(
   } catch (error) {
     db.exec("ROLLBACK");
     throw error;
+  }
+}
+
+export async function runClassificationJob(
+  context: ClassificationJobContext,
+  jobId: string,
+): Promise<void> {
+  ensureTaxonomy(context.db);
+  const photos = context.db.prepare(`
+    SELECT id, drive_item_id, name, path, etag
+    FROM photos
+    WHERE deleted_remote_at IS NULL AND classification_reviewed = 0
+    ORDER BY id
+  `).all() as ClassifiablePhotoRow[];
+  const candidateLabels = TAXONOMY.filter((slug) => slug !== "other");
+
+  let processed = 0;
+  for (const photo of photos) {
+    const ruleSuggestions = classifyByRule({ name: photo.name, path: photo.path });
+    let suggestions: ClassificationSuggestion[];
+
+    if (ruleSuggestions.length > 0) {
+      suggestions = ruleSuggestions;
+    } else {
+      const thumbnailPath = await getThumbnailPath(
+        { driveItemId: photo.drive_item_id, etag: photo.etag },
+        context.drive,
+        context.dataDir ?? env.DATA_DIR,
+      );
+      const scores = await context.classifier.classify(thumbnailPath, [...candidateLabels]);
+      suggestions = selectModelSuggestions(scores);
+    }
+
+    writeAutomaticCategories(context.db, photo.id, suggestions);
+    processed += 1;
+    updateJobProgress(context.db, jobId, processed, photos.length);
   }
 }
