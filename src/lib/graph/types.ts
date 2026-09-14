@@ -1,6 +1,6 @@
 export interface GraphDriveItem {
   id: string;
-  name: string;
+  name?: string;
   size?: number;
   eTag?: string;
   createdDateTime?: string;
@@ -9,6 +9,7 @@ export interface GraphDriveItem {
     mimeType?: string;
     hashes?: { quickXorHash?: string };
   };
+  folder?: { childCount?: number };
   photo?: {
     width?: number;
     height?: number;

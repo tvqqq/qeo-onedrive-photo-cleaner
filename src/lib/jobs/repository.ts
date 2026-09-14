@@ -86,6 +86,11 @@ export function requeueInterruptedJobs(db: AppDatabase): number {
   return Number(result.changes);
 }
 
+export function updateJobPayload(db: AppDatabase, id: string, payload: unknown): void {
+  db.prepare(`UPDATE jobs SET payload_json = ?, updated_at = ? WHERE id = ?`)
+    .run(JSON.stringify(payload), Date.now(), id);
+}
+
 export function updateJobProgress(
   db: AppDatabase,
   id: string,
