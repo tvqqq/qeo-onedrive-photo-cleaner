@@ -1,0 +1,83 @@
+name: CI
+
+on:
+  push:
+    branches: [main, qeo-v0-1]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Tests
+        run: npm test
+      - name: Lint
+        run: npm run lint
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Build
+        run: npm run build
+        env:
+          DEMO_MODE: "1"
+          APP_BASE_URL: "http://localhost:3000"
+      - name: Docker build
+        run: docker build -t qeo-onedrive-photo-cleaner:ci .
+      - name: Docker smoke
+        run: |
+          docker run -d --name qeo-photo-cleaner-ci \
+            -p 127.0.0.1:3000:3000 \
+            -e DEMO_MODE=1 \
+            -e APP_BASE_URL=http://localhost:3000 \
+            -e DATA_DIR=/data \
+            qeo-onedrive-photo-cleaner:ci
+          trap 'docker rm -f qeo-photo-cleaner-ci >/dev/null 2>&1 || true' EXIT
+
+          ready=0
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent --show-error http://127.0.0.1:3000/api/health >/dev/null 2>&1; then
+              ready=1
+              break
+            fi
+            if [ "$(docker inspect -f '{{.State.Running}}' qeo-photo-cleaner-ci 2>/dev/null || echo false)" != "true" ]; then
+              echo "Container exited before becoming healthy"
+              docker logs qeo-photo-cleaner-ci || true
+              exit 1
+            fi
+            sleep 1
+          done
+
+          if [ "$ready" -ne 1 ]; then
+            echo "Container did not become healthy in time"
+            docker logs qeo-photo-cleaner-ci || true
+            exit 1
+          fi
+
+          curl --fail --silent --show-error http://127.0.0.1:3000/api/health
+          curl --fail --silent --show-error http://127.0.0.1:3000/ >/dev/null
+
+  secrets:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_ENABLE_COMMENTS: "false"
+          GITLEAKS_ENABLE_UPLOAD_ARTIFACT: "false"
