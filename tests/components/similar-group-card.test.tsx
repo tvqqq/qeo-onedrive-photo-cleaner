@@ -15,7 +15,7 @@ describe("SimilarGroupCard", () => {
       { photoId: "b", name: "b.jpg", path: "/b.jpg", sizeBytes: 120 },
     ]} />);
 
-    expect(screen.getByText(/heuristic/i)).toBeTruthy();
+    expect(screen.getByText("Heuristic — review only")).toBeTruthy();
     expect(screen.queryByRole("checkbox")).toBeNull();
     expect(screen.queryByText(/recycle bin/i)).toBeNull();
     expect(screen.getByText(/96/)).toBeTruthy();
