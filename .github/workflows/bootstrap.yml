@@ -1,0 +1,38 @@
+name: Bootstrap Scaffold
+
+on:
+  push:
+    branches: [feat/v0.1]
+    paths:
+      - .github/workflows/bootstrap.yml
+
+jobs:
+  scaffold:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Generate scaffold
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/qeo-bootstrap
+          npx create-next-app@16.3.3 /tmp/qeo-bootstrap/app --ts --tailwind --eslint --app --src-dir --use-npm --import-alias='@/*' --yes
+          cd /tmp/qeo-bootstrap/app
+          npm install drizzle-orm @azure/msal-node @huggingface/transformers sharp zod p-limit tsx
+          npm install -D drizzle-kit vitest @vitest/coverage-v8 @testing-library/react @testing-library/jest-dom jsdom
+          npm pkg set scripts.worker='tsx src/worker/index.ts'
+          npm pkg set scripts.db:generate='drizzle-kit generate'
+          npm pkg set scripts.db:migrate='tsx src/lib/db/migrate.ts'
+          npm pkg set scripts.test='vitest run'
+          npm pkg set scripts.test:watch='vitest'
+          npm pkg set scripts.typecheck='tsc --noEmit'
+          npm pkg set scripts.validate='npm run lint && npm run typecheck && npm test && npm run build'
+          tar -czf /tmp/qeo-bootstrap/scaffold.tar.gz --exclude=.git .
+      - uses: actions/upload-artifact@v4
+        with:
+          name: next-scaffold
+          path: /tmp/qeo-bootstrap/scaffold.tar.gz
+          if-no-files-found: error
