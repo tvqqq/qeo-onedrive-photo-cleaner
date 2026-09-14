@@ -30,7 +30,7 @@ jobs:
           npm pkg set scripts.test:watch='vitest'
           npm pkg set scripts.typecheck='tsc --noEmit'
           npm pkg set scripts.validate='npm run lint && npm run typecheck && npm test && npm run build'
-          tar -czf /tmp/qeo-bootstrap/scaffold.tar.gz --exclude=.git .
+          tar -czf /tmp/qeo-bootstrap/scaffold.tar.gz --exclude=.git --exclude=node_modules --exclude=.next .
       - uses: actions/upload-artifact@v4
         with:
           name: next-scaffold
