@@ -22,7 +22,7 @@ jobs:
           npx create-next-app@16.3.3 /tmp/qeo-bootstrap/app --ts --tailwind --eslint --app --src-dir --use-npm --import-alias='@/*' --yes
           cd /tmp/qeo-bootstrap/app
           npm install drizzle-orm @azure/msal-node @huggingface/transformers sharp zod p-limit tsx
-          npm install -D drizzle-kit vitest @vitest/coverage-v8 @testing-library/react @testing-library/jest-dom jsdom
+          npm install -D @types/node@^24 drizzle-kit vitest @vitest/coverage-v8 @testing-library/react @testing-library/jest-dom jsdom
           npm pkg set scripts.worker='tsx src/worker/index.ts'
           npm pkg set scripts.db:generate='drizzle-kit generate'
           npm pkg set scripts.db:migrate='tsx src/lib/db/migrate.ts'
