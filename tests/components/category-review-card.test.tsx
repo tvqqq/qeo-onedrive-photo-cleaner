@@ -16,10 +16,22 @@ beforeEach(() => {
 });
 
 describe("CategoryReviewCard", () => {
+  it("shows category source and confidence", () => {
+    render(<CategoryReviewCard
+      photo={{ photoId: "photo-1", name: "holiday.jpg", path: "/Camera/holiday.jpg" }}
+      selectedSlugs={["travel"]}
+      labels={[{ slug: "travel", name: "Travel", source: "local-ai", confidence: 0.78 }]}
+    />);
+
+    expect(screen.getByText(/local-ai/i)).toBeTruthy();
+    expect(screen.getByText(/78%/)).toBeTruthy();
+  });
+
   it("saves category differences as manual review", async () => {
     render(<CategoryReviewCard
       photo={{ photoId: "photo-1", name: "holiday.jpg", path: "/Camera/holiday.jpg" }}
       selectedSlugs={["travel"]}
+      labels={[]}
     />);
 
     fireEvent.click(screen.getByLabelText("Family"));
