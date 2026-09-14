@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { CategoryReviewCard } from "@/components/category-review-card";
 import { ClassifyPhotosButton } from "@/components/classify-photos-button";
+import { SyncAlbumButton } from "@/components/sync-album-button";
 import { listCategoryReviewQueue } from "@/lib/classification/service";
+import { CATEGORY_NAMES, TAXONOMY } from "@/lib/classification/taxonomy";
 import { openAppDatabase } from "@/lib/db/client";
 import { migrateDatabase } from "@/lib/db/migrate";
 
@@ -19,7 +21,7 @@ export default function CategoriesPage() {
   }
 
   return (
-    <main className="mx-auto max-w-6xl space-y-6 p-8">
+    <main className="mx-auto max-w-6xl space-y-8 p-8">
       <div>
         <Link className="text-sm underline" href="/">← Dashboard</Link>
         <h1 className="mt-4 text-2xl font-semibold">Category review</h1>
@@ -29,6 +31,20 @@ export default function CategoriesPage() {
       </div>
 
       <ClassifyPhotosButton />
+
+      <section className="space-y-3 rounded-xl border bg-white p-5">
+        <div>
+          <h2 className="font-medium">OneDrive albums</h2>
+          <p className="mt-1 text-sm text-gray-600">
+            Sync adds reviewed, non-deleted photos only. v0.1 never removes existing album members automatically.
+          </p>
+        </div>
+        <div className="grid gap-3 md:grid-cols-2">
+          {TAXONOMY.filter((slug) => slug !== "other").map((slug) => (
+            <SyncAlbumButton key={slug} categoryId={slug} categoryName={CATEGORY_NAMES[slug]} />
+          ))}
+        </div>
+      </section>
 
       {items.length === 0 ? (
         <p className="rounded-lg border p-5 text-sm text-gray-600">
