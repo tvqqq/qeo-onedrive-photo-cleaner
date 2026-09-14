@@ -1,11 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const enqueueJob = vi.fn();
-const close = vi.fn();
+const mocks = vi.hoisted(() => ({
+  enqueueJob: vi.fn(),
+  close: vi.fn(),
+}));
 
-vi.mock("@/lib/db/client", () => ({ openAppDatabase: () => ({ close }) }));
+vi.mock("@/lib/db/client", () => ({ openAppDatabase: () => ({ close: mocks.close }) }));
 vi.mock("@/lib/db/migrate", () => ({ migrateDatabase: vi.fn() }));
-vi.mock("@/lib/jobs/repository", () => ({ enqueueJob }));
+vi.mock("@/lib/jobs/repository", () => ({ enqueueJob: mocks.enqueueJob }));
 vi.mock("@/lib/auth/msal", () => ({ getAccessToken: vi.fn() }));
 vi.mock("@/lib/graph/client", () => ({ GraphClient: class {} }));
 vi.mock("@/lib/graph/drive", () => ({ DriveApi: class {} }));
@@ -15,9 +17,9 @@ vi.mock("@/lib/env", () => ({ env: { DEMO_MODE: true } }));
 import { POST } from "@/app/api/duplicates/action/route";
 
 beforeEach(() => {
-  enqueueJob.mockReset();
-  close.mockReset();
-  enqueueJob.mockReturnValue("job-similar");
+  mocks.enqueueJob.mockReset();
+  mocks.close.mockReset();
+  mocks.enqueueJob.mockReturnValue("job-similar");
 });
 
 describe("duplicate actions", () => {
@@ -33,7 +35,7 @@ describe("duplicate actions", () => {
 
     expect(response.status).toBe(202);
     await expect(response.json()).resolves.toEqual({ jobId: "job-similar" });
-    expect(enqueueJob).toHaveBeenCalledWith(expect.anything(), "find-similar", {});
-    expect(close).toHaveBeenCalledOnce();
+    expect(mocks.enqueueJob).toHaveBeenCalledWith(expect.anything(), "find-similar", {});
+    expect(mocks.close).toHaveBeenCalledOnce();
   });
 });
