@@ -1,4 +1,7 @@
 import type { AppDatabase } from "@/lib/db/client";
+import { ClipService } from "@/lib/classification/clip";
+import { runExactDuplicateJob } from "@/lib/duplicates/exact";
+import { runSimilarPhotoJob } from "@/lib/duplicates/similar";
 import { env } from "@/lib/env";
 import { DriveApi } from "@/lib/graph/drive";
 import { GraphClient } from "@/lib/graph/client";
@@ -6,7 +9,8 @@ import { getAccessToken } from "@/lib/auth/msal";
 import type { JobRecord } from "@/lib/jobs/types";
 import { DemoDriveApi } from "@/lib/scan/demo";
 import { runScanJob, type ScanMode } from "@/lib/scan/service";
-import { runExactDuplicateJob } from "@/lib/duplicates/exact";
+
+const clipService = new ClipService();
 
 function driveApi() {
   return env.DEMO_MODE ? new DemoDriveApi() : new DriveApi(new GraphClient(getAccessToken));
@@ -21,6 +25,9 @@ export async function dispatchJob(db: AppDatabase, job: JobRecord): Promise<void
     }
     case "verify-exact":
       await runExactDuplicateJob({ db, drive: driveApi() }, job.id);
+      return;
+    case "find-similar":
+      await runSimilarPhotoJob({ db, drive: driveApi(), clip: clipService }, job.id);
       return;
     default:
       throw new Error(`Job type ${job.type} is not implemented yet`);
