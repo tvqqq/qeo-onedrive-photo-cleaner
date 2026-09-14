@@ -17,12 +17,4 @@ jobs:
           cache: npm
           cache-dependency-path: package.json
       - run: npm install
-      - name: Show bundled Next.js route-handler guidance
-        shell: bash
-        run: |
-          set -euo pipefail
-          doc="$(find node_modules/next/dist/docs -type f | grep -E 'route-handlers|route-handler' | head -n 1)"
-          test -n "$doc"
-          echo "Reading $doc"
-          sed -n '1,260p' "$doc"
-      - run: npm test -- tests/env.test.ts
+      - run: npm test
