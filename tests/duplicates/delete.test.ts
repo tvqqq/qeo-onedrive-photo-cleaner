@@ -23,7 +23,7 @@ function setup(ids = ["keeper", "copy"]) {
   `).run(now);
   const insert = db.prepare(`
     INSERT INTO duplicate_group_items(group_id,photo_id,recommended_keep,selected_for_delete,reviewed_etag)
-    VALUES ('group-1',?,?,?,?,?)
+    VALUES ('group-1',?,?,?,?)
   `);
   for (const id of ids) {
     insert.run(id, id === "keeper" ? 1 : 0, id === "keeper" ? 0 : 1, `${id}-etag`);
