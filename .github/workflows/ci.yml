@@ -45,8 +45,29 @@ jobs:
             -e DATA_DIR=/data \
             qeo-onedrive-photo-cleaner:ci
           trap 'docker rm -f qeo-photo-cleaner-ci >/dev/null 2>&1 || true' EXIT
-          curl --fail --retry 20 --retry-delay 1 --retry-connrefused http://127.0.0.1:3000/api/health
-          curl --fail --retry 5 --retry-delay 1 http://127.0.0.1:3000/
+
+          ready=0
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent --show-error http://127.0.0.1:3000/api/health >/dev/null 2>&1; then
+              ready=1
+              break
+            fi
+            if [ "$(docker inspect -f '{{.State.Running}}' qeo-photo-cleaner-ci 2>/dev/null || echo false)" != "true" ]; then
+              echo "Container exited before becoming healthy"
+              docker logs qeo-photo-cleaner-ci || true
+              exit 1
+            fi
+            sleep 1
+          done
+
+          if [ "$ready" -ne 1 ]; then
+            echo "Container did not become healthy in time"
+            docker logs qeo-photo-cleaner-ci || true
+            exit 1
+          fi
+
+          curl --fail --silent --show-error http://127.0.0.1:3000/api/health
+          curl --fail --silent --show-error http://127.0.0.1:3000/ >/dev/null
 
   secrets:
     runs-on: ubuntu-latest
