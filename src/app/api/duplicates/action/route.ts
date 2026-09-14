@@ -14,6 +14,7 @@ export const runtime = "nodejs";
 
 const actionSchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("verify-exact") }),
+  z.object({ action: z.literal("find-similar") }),
   z.object({
     action: z.literal("delete"),
     groupId: z.string().min(1),
@@ -30,6 +31,10 @@ export async function POST(request: Request) {
       migrateDatabase(db);
       if (action.action === "verify-exact") {
         const jobId = enqueueJob(db, "verify-exact", {});
+        return NextResponse.json({ jobId }, { status: 202 });
+      }
+      if (action.action === "find-similar") {
+        const jobId = enqueueJob(db, "find-similar", {});
         return NextResponse.json({ jobId }, { status: 202 });
       }
       if (env.DEMO_MODE) {
