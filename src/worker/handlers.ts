@@ -6,18 +6,22 @@ import { getAccessToken } from "@/lib/auth/msal";
 import type { JobRecord } from "@/lib/jobs/types";
 import { DemoDriveApi } from "@/lib/scan/demo";
 import { runScanJob, type ScanMode } from "@/lib/scan/service";
+import { runExactDuplicateJob } from "@/lib/duplicates/exact";
+
+function driveApi() {
+  return env.DEMO_MODE ? new DemoDriveApi() : new DriveApi(new GraphClient(getAccessToken));
+}
 
 export async function dispatchJob(db: AppDatabase, job: JobRecord): Promise<void> {
   switch (job.type) {
     case "scan": {
       const payload = (job.payload ?? {}) as { mode?: ScanMode };
-      const mode = payload.mode ?? "incremental";
-      const drive = env.DEMO_MODE
-        ? new DemoDriveApi()
-        : new DriveApi(new GraphClient(getAccessToken));
-      await runScanJob({ db, drive }, job.id, mode);
+      await runScanJob({ db, drive: driveApi() }, job.id, payload.mode ?? "incremental");
       return;
     }
+    case "verify-exact":
+      await runExactDuplicateJob({ db, drive: driveApi() }, job.id);
+      return;
     default:
       throw new Error(`Job type ${job.type} is not implemented yet`);
   }
