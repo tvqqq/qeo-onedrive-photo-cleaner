@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const fetchMock = vi.fn();
 vi.stubGlobal("fetch", fetchMock);
@@ -8,6 +8,7 @@ vi.mock("@/components/photo-thumb", () => ({ PhotoThumb: ({ alt }: { alt: string
 
 import { CategoryReviewCard } from "@/components/category-review-card";
 
+afterEach(cleanup);
 beforeEach(() => {
   fetchMock.mockReset().mockResolvedValue(new Response(JSON.stringify({ ok: true }), {
     status: 200,
