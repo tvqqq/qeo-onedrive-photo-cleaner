@@ -11,6 +11,7 @@ import { getAccessToken } from "@/lib/auth/msal";
 import type { JobRecord } from "@/lib/jobs/types";
 import { DemoDriveApi } from "@/lib/scan/demo";
 import { runScanJob, type ScanMode } from "@/lib/scan/service";
+import { getCleanerSettings } from "@/lib/settings/service";
 
 const clipService = new ClipService();
 const zeroShotClassifier = new ZeroShotClassifier();
@@ -29,9 +30,18 @@ export async function dispatchJob(db: AppDatabase, job: JobRecord): Promise<void
     case "verify-exact":
       await runExactDuplicateJob({ db, drive: driveApi() }, job.id);
       return;
-    case "find-similar":
-      await runSimilarPhotoJob({ db, drive: driveApi(), clip: clipService }, job.id);
+    case "find-similar": {
+      const settings = getCleanerSettings(db);
+      await runSimilarPhotoJob(
+        { db, drive: driveApi(), clip: clipService },
+        job.id,
+        {
+          dHashThreshold: settings.dhashThreshold,
+          clipThreshold: settings.clipThreshold,
+        },
+      );
       return;
+    }
     case "classify":
       await runClassificationJob({ db, drive: driveApi(), classifier: zeroShotClassifier }, job.id);
       return;
