@@ -1,8 +1,14 @@
 /** @vitest-environment jsdom */
-import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { PhotoMetadata } from "@/lib/photos/types";
 import { PhotosGrid } from "@/components/photos-grid";
+
+const fetchMock = vi.fn();
+vi.stubGlobal("fetch", fetchMock);
+
+afterEach(cleanup);
+beforeEach(() => fetchMock.mockReset());
 
 const photo: PhotoMetadata = {
   photoId: "photo-1",
@@ -37,10 +43,11 @@ const photo: PhotoMetadata = {
   etag: "etag-1",
   quickxorHash: "qxor-1",
   sha256: "sha-1",
+  tags: [],
 };
 
 describe("PhotosGrid", () => {
-  it("opens and closes a read-only metadata dialog without route navigation", () => {
+  it("opens and closes the metadata dialog without route navigation", () => {
     render(<PhotosGrid photos={[photo]} />);
 
     fireEvent.click(screen.getByRole("button", { name: /open IMG_0001.JPG details/i }));
@@ -52,5 +59,48 @@ describe("PhotosGrid", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /close details/i }));
     expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("keeps successful tag edits in visible state when the dialog is reopened", async () => {
+    fetchMock.mockResolvedValue(new Response(JSON.stringify({
+      tag: {
+        slug: "family",
+        name: "Family",
+        source: "manual",
+        state: "active",
+        confidence: null,
+      },
+    }), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    }));
+    render(<PhotosGrid photos={[photo]} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /open IMG_0001.JPG details/i }));
+    fireEvent.change(screen.getByPlaceholderText(/add a tag/i), { target: { value: "Family" } });
+    fireEvent.click(screen.getByRole("button", { name: /^add$/i }));
+    expect(await screen.findByText("#Family")).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: /close details/i }));
+    fireEvent.click(screen.getByRole("button", { name: /open IMG_0001.JPG details/i }));
+
+    expect(screen.getByText("#Family")).toBeTruthy();
+  });
+
+  it("removes a successfully deleted photo from the current Library immediately", async () => {
+    fetchMock.mockResolvedValue(new Response(JSON.stringify({ deleted: true }), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    }));
+    render(<PhotosGrid photos={[photo]} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /open IMG_0001.JPG details/i }));
+    fireEvent.click(screen.getByRole("button", { name: /delete photo/i }));
+    fireEvent.click(screen.getByRole("button", { name: /confirm delete/i }));
+
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog")).toBeNull();
+      expect(screen.queryByRole("button", { name: /open IMG_0001.JPG details/i })).toBeNull();
+    });
   });
 });
