@@ -42,6 +42,7 @@ const photo: PhotoMetadata = {
   etag: "v1",
   quickxorHash: null,
   sha256: null,
+  tags: [],
 };
 
 afterEach(cleanup);
