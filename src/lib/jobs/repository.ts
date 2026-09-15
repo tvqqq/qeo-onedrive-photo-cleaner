@@ -51,18 +51,26 @@ export function enqueueJob(db: AppDatabase, type: JobType, payload: unknown): st
   return id;
 }
 
-export function enqueueJobIfNotActive(
+export function enqueueJobIfIdle(
   db: AppDatabase,
   type: JobType,
   payload: unknown,
 ): string {
-  const existing = db.prepare(`
-    SELECT id FROM jobs
-    WHERE type = ? AND status IN ('queued', 'running')
-    ORDER BY created_at ASC, id ASC
-    LIMIT 1
-  `).get(type) as { id: string } | undefined;
-  return existing?.id ?? enqueueJob(db, type, payload);
+  db.exec("BEGIN IMMEDIATE");
+  try {
+    const existing = db.prepare(`
+      SELECT id FROM jobs
+      WHERE type = ? AND status IN ('queued', 'running')
+      ORDER BY created_at ASC, id ASC
+      LIMIT 1
+    `).get(type) as { id: string } | undefined;
+    const id = existing?.id ?? enqueueJob(db, type, payload);
+    db.exec("COMMIT");
+    return id;
+  } catch (error) {
+    db.exec("ROLLBACK");
+    throw error;
+  }
 }
 
 export function getJob(db: AppDatabase, id: string): JobRecord | null {
