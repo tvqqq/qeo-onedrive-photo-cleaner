@@ -21,11 +21,15 @@ function dateInputValue(value?: number) {
 const fieldClass = "mt-1 w-full rounded-lg border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none transition focus:border-sky-400";
 
 export function PhotosFilterBar({ query }: { query: PhotoQuery }) {
+  const searchValue = [query.search, ...(query.tagSlugs ?? []).map((slug) => `#${slug}`)]
+    .filter(Boolean)
+    .join(" ");
+
   return (
     <form method="get" className="grid gap-3 rounded-2xl border border-zinc-800 bg-zinc-950/60 p-4 md:grid-cols-2 xl:grid-cols-6">
       <label className="text-xs font-medium text-zinc-400 xl:col-span-2">
         Search
-        <input name="q" type="search" defaultValue={query.search ?? ""} placeholder="Filename, path, camera…" className={fieldClass} />
+        <input name="q" type="search" defaultValue={searchValue} placeholder="Filename, camera, device, or #tag…" className={fieldClass} />
       </label>
 
       <label className="text-xs font-medium text-zinc-400">
