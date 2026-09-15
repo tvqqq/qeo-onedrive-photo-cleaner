@@ -1,8 +1,8 @@
 /** @vitest-environment jsdom */
 
 import React from "react";
-import { fireEvent, render, screen } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const navigation = vi.hoisted(() => ({
   push: vi.fn(),
@@ -35,6 +35,8 @@ function pushedParams() {
   const url = new URL(target, "http://localhost:3000");
   return url.searchParams;
 }
+
+afterEach(cleanup);
 
 describe("TagFilterBar", () => {
   beforeEach(() => {
