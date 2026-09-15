@@ -33,7 +33,7 @@ export interface PhotoMetadata {
   etag: string | null;
   quickxorHash: string | null;
   sha256: string | null;
-  tags?: PhotoTag[];
+  tags: PhotoTag[];
 }
 
 export type PhotoSort =
