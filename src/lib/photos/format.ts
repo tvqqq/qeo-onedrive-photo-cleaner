@@ -30,6 +30,24 @@ export function formatCamera(make: string | null, model: string | null): string 
   return `${normalizedMake} ${normalizedModel}`;
 }
 
+export function formatSourceIdentity(input: {
+  deviceName: string | null;
+  applicationName: string | null;
+  userName: string | null;
+}): string | null {
+  const parts = [input.deviceName, input.applicationName, input.userName]
+    .map((part) => part?.trim() || null)
+    .filter((part): part is string => Boolean(part));
+  const seen = new Set<string>();
+  const unique = parts.filter((part) => {
+    const key = part.toLocaleLowerCase();
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+  return unique.length ? unique.join(" · ") : null;
+}
+
 export function formatAperture(fNumber: number | null): string | null {
   if (!finitePositive(fNumber)) return null;
   return `f/${Number(fNumber.toFixed(2))}`;
