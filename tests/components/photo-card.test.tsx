@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { PhotoMetadata } from "@/lib/photos/types";
 
 vi.mock("@/components/photo-thumb", () => ({
-  PhotoThumb: ({ alt }: { alt: string }) => <div data-testid="photo-thumb">{alt}</div>,
+  PhotoThumb: () => <div data-testid="photo-thumb" />,
 }));
 
 import { PhotoCard } from "@/components/photo-card";
