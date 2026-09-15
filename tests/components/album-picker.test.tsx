@@ -93,4 +93,29 @@ describe("AlbumPicker", () => {
     fireEvent.click(screen.getByRole("button", { name: /add to album/i }));
     expect((await screen.findByRole("status")).textContent).toContain("OneDrive unavailable");
   });
+
+  it("does not retry a stale album mutation and refreshes only on the next explicit reopen", async () => {
+    fetchMock
+      .mockResolvedValueOnce(albumResponse())
+      .mockResolvedValueOnce(new Response(JSON.stringify({ error: "OneDrive album no longer exists" }), {
+        status: 404,
+        headers: { "content-type": "application/json" },
+      }))
+      .mockResolvedValueOnce(albumResponse());
+
+    render(<AlbumPicker photoId="photo-1" />);
+    fireEvent.click(screen.getByRole("button", { name: /add to album/i }));
+    await screen.findByRole("option", { name: "Family" });
+    fireEvent.change(screen.getByRole("combobox"), { target: { value: "album-family" } });
+    fireEvent.click(screen.getByRole("button", { name: /add photo/i }));
+
+    expect((await screen.findByRole("status")).textContent).toContain("OneDrive album no longer exists");
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+
+    fireEvent.click(screen.getByRole("button", { name: /hide albums/i }));
+    fireEvent.click(screen.getByRole("button", { name: /add to album/i }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
+    expect(fetchMock.mock.calls[2]?.[0]).toBe("/api/albums");
+  });
 });
