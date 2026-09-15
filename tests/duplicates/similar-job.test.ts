@@ -7,6 +7,7 @@ import type { AppDatabase } from "@/lib/db/client";
 import { createDatabase } from "@/lib/db/client";
 import { migrateDatabase } from "@/lib/db/migrate";
 import { enqueueJob, getJob } from "@/lib/jobs/repository";
+import { GraphRequestError } from "@/lib/graph/client";
 import { runSimilarPhotoJob } from "@/lib/duplicates/similar";
 
 const open: AppDatabase[] = [];
@@ -85,5 +86,46 @@ describe("similar photo job", () => {
 
     expect(drive.getThumbnailContent).toHaveBeenCalledTimes(2);
     expect(clip.embedImage).toHaveBeenCalledTimes(2);
+  });
+
+  it("marks a Graph itemNotFound photo stale and continues processing", async () => {
+    const { db, dataDir } = setup();
+    const bytes = await jpegBytes();
+    const drive = {
+      getThumbnailContent: vi.fn(async (itemId: string) => {
+        if (itemId === "drive-a") {
+          throw new GraphRequestError(404, "itemNotFound", "Item not found");
+        }
+        return bytes;
+      }),
+    };
+    const clip = { embedImage: vi.fn().mockResolvedValue(new Float32Array([1, 0])) };
+    const jobId = enqueueJob(db, "find-similar", {});
+
+    await runSimilarPhotoJob({ db, drive, clip, dataDir }, jobId);
+
+    const stale = db.prepare("SELECT deleted_remote_at FROM photos WHERE id = 'a'").get() as {
+      deleted_remote_at: number | null;
+    };
+    expect(stale.deleted_remote_at).not.toBeNull();
+    expect(getJob(db, jobId)?.progressCurrent).toBe(2);
+    expect(drive.getThumbnailContent).toHaveBeenCalledTimes(2);
+    expect(clip.embedImage).toHaveBeenCalledTimes(1);
+  });
+
+  it("still fails the similarity job for other Graph errors", async () => {
+    const { db, dataDir } = setup();
+    const drive = {
+      getThumbnailContent: vi.fn().mockRejectedValue(
+        new GraphRequestError(403, "accessDenied", "Access denied"),
+      ),
+    };
+    const clip = { embedImage: vi.fn().mockResolvedValue(new Float32Array([1, 0])) };
+    const jobId = enqueueJob(db, "find-similar", {});
+
+    await expect(runSimilarPhotoJob({ db, drive, clip, dataDir }, jobId)).rejects.toMatchObject({
+      status: 403,
+      code: "accessDenied",
+    });
   });
 });
