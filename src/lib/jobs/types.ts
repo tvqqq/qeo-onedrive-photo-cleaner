@@ -1,5 +1,6 @@
 export type JobStatus = "queued" | "running" | "completed" | "failed";
 export type JobType = "scan" | "verify-exact" | "find-similar" | "classify" | "sync-album";
+export type WorkerLane = "core" | "ml";
 
 export interface JobRecord<T = unknown> {
   id: string;
