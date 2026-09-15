@@ -21,7 +21,7 @@ export default function ScanPage() {
         <div>
           <h2 className="font-medium text-zinc-100">Full scan</h2>
           <p className="mt-2 text-sm leading-6 text-zinc-400">
-            Re-indexs the drive from the root and refreshes available Graph metadata. Existing cleanup state remains local.
+            Re-indexes the drive from the root and refreshes available Graph metadata. Existing cleanup state remains local.
           </p>
         </div>
       </Card>
