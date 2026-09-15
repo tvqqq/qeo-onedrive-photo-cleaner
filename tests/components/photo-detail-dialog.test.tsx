@@ -62,7 +62,7 @@ function photo(overrides: Partial<PhotoMetadata> = {}): PhotoMetadata {
 }
 
 describe("PhotoDetailDialog", () => {
-  it("shows only true OneDrive source identity fields when available", () => {
+  it("shows the approved organization sections and true OneDrive source identity fields", () => {
     render(
       <PhotoDetailDialog
         photo={photo({
@@ -79,6 +79,9 @@ describe("PhotoDetailDialog", () => {
       />,
     );
 
+    for (const heading of ["Tags", "Album", "Metadata", "Technical", "Danger zone"]) {
+      expect(screen.getByRole("heading", { name: heading })).toBeTruthy();
+    }
     expect(screen.getByText("Uploaded/created by")).toBeTruthy();
     expect(screen.getByText("Qeo iPhone · OneDrive iOS · Quyen")).toBeTruthy();
     expect(screen.getByText("Last modified by")).toBeTruthy();
