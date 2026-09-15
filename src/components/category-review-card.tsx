@@ -1,14 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { PhotoThumb } from "@/components/photo-thumb";
+import { PhotoCard } from "@/components/photo-card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { CATEGORY_NAMES, TAXONOMY, type CategorySlug } from "@/lib/classification/taxonomy";
-
-export interface CategoryReviewPhoto {
-  photoId: string;
-  name: string;
-  path: string;
-}
+import type { PhotoMetadata } from "@/lib/photos/types";
 
 export interface CategoryReviewLabel {
   slug: CategorySlug;
@@ -22,7 +19,7 @@ export function CategoryReviewCard({
   selectedSlugs,
   labels,
 }: {
-  photo: CategoryReviewPhoto;
+  photo: PhotoMetadata;
   selectedSlugs: CategorySlug[];
   labels: CategoryReviewLabel[];
 }) {
@@ -62,52 +59,53 @@ export function CategoryReviewCard({
   }
 
   return (
-    <article className="grid gap-5 rounded-xl border bg-white p-5 md:grid-cols-[180px_1fr]">
-      <PhotoThumb photoId={photo.photoId} alt={photo.name} className="w-full" />
-      <div className="space-y-4">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <h2 className="font-medium">{photo.name}</h2>
-            <p className="text-sm text-gray-500">{photo.path}</p>
-          </div>
-          <span className="rounded-full bg-amber-100 px-2 py-1 text-xs font-medium text-amber-900">Needs review</span>
+    <PhotoCard photo={photo}>
+      <div className="space-y-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <Badge tone="warning">Needs review</Badge>
+          <span className="text-xs text-zinc-500">Choose the categories that should remain after review.</span>
         </div>
+
         {labels.length > 0 ? (
-          <div className="flex flex-wrap gap-2 text-xs text-gray-600">
+          <div className="flex flex-wrap gap-2">
             {labels.map((label) => (
-              <span key={label.slug} className="rounded-full border px-2 py-1">
+              <span
+                key={label.slug}
+                className="rounded-full border border-zinc-800 bg-zinc-900/70 px-2.5 py-1 text-xs text-zinc-300"
+              >
                 {label.name} · {label.source}
                 {label.confidence === null ? "" : ` · ${Math.round(label.confidence * 100)}%`}
               </span>
             ))}
           </div>
         ) : (
-          <p className="text-xs text-gray-500">No suggested labels yet.</p>
+          <p className="text-xs text-zinc-500">No suggested labels yet.</p>
         )}
-        <div className="flex flex-wrap gap-2">
+
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
           {TAXONOMY.map((slug) => (
-            <label key={slug} className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm">
+            <label
+              key={slug}
+              className="flex cursor-pointer items-center gap-2 rounded-lg border border-zinc-800 bg-zinc-950/50 px-3 py-2 text-sm text-zinc-200 transition hover:border-zinc-700"
+            >
               <input
                 type="checkbox"
                 checked={selected.has(slug)}
                 onChange={() => toggle(slug)}
+                className="h-4 w-4 accent-sky-400"
               />
               {CATEGORY_NAMES[slug]}
             </label>
           ))}
         </div>
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => void save()}
-            className="rounded-md bg-black px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
-          >
-            Save & mark reviewed
-          </button>
-          {message ? <span className="text-sm text-gray-600">{message}</span> : null}
+
+        <div className="flex flex-wrap items-center gap-3">
+          <Button type="button" disabled={busy} onClick={() => void save()}>
+            {busy ? "Saving…" : "Save & mark reviewed"}
+          </Button>
+          {message ? <span role="status" className="text-sm text-zinc-300">{message}</span> : null}
         </div>
       </div>
-    </article>
+    </PhotoCard>
   );
 }
