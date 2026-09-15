@@ -42,6 +42,7 @@ const photo: PhotoMetadata = {
   etag: "etag-1",
   quickxorHash: null,
   sha256: null,
+  tags: [],
 };
 
 describe("PhotoCard", () => {
