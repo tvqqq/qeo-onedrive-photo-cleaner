@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Button } from "@/components/ui/button";
 
 async function postSettings(body: unknown) {
   const response = await fetch("/api/settings/action", {
@@ -57,56 +58,64 @@ export function SettingsControls({
   }
 
   return (
-    <div className="space-y-5">
-      <div className="grid gap-4 sm:grid-cols-2">
-        <label className="space-y-2 text-sm">
-          <span className="font-medium">dHash threshold</span>
-          <input
-            aria-label="dHash threshold"
-            type="number"
-            min={0}
-            max={64}
-            step={1}
-            value={dhashThreshold}
-            onChange={(event) => setDhashThreshold(event.target.value)}
-            className="w-full rounded-md border px-3 py-2"
-          />
-        </label>
-        <label className="space-y-2 text-sm">
-          <span className="font-medium">CLIP threshold</span>
-          <input
-            aria-label="CLIP threshold"
-            type="number"
-            min={0.01}
-            max={1}
-            step={0.01}
-            value={clipThreshold}
-            onChange={(event) => setClipThreshold(event.target.value)}
-            className="w-full rounded-md border px-3 py-2"
-          />
-        </label>
+    <div className="space-y-6">
+      <div className="space-y-4">
+        <div>
+          <h2 className="font-medium text-zinc-100">Duplicate detection thresholds</h2>
+          <p className="mt-1 text-sm leading-6 text-zinc-400">
+            Defaults remain conservative. Similar matches are review-only regardless of these values.
+          </p>
+        </div>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <label className="space-y-2 text-sm text-zinc-300">
+            <span className="font-medium">dHash threshold</span>
+            <input
+              aria-label="dHash threshold"
+              type="number"
+              min={0}
+              max={64}
+              step={1}
+              value={dhashThreshold}
+              onChange={(event) => setDhashThreshold(event.target.value)}
+              className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-zinc-100 outline-none focus:border-sky-500"
+            />
+          </label>
+          <label className="space-y-2 text-sm text-zinc-300">
+            <span className="font-medium">CLIP threshold</span>
+            <input
+              aria-label="CLIP threshold"
+              type="number"
+              min={0.01}
+              max={1}
+              step={0.01}
+              value={clipThreshold}
+              onChange={(event) => setClipThreshold(event.target.value)}
+              className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-zinc-100 outline-none focus:border-sky-500"
+            />
+          </label>
+        </div>
+        <Button type="button" variant="primary" disabled={busy} onClick={() => void saveThresholds()}>
+          Save thresholds
+        </Button>
       </div>
 
-      <div className="flex flex-wrap gap-3">
-        <button
+      <div className="border-t border-zinc-800 pt-6">
+        <h2 className="font-medium text-zinc-100">Thumbnail cache</h2>
+        <p className="mt-1 text-sm leading-6 text-zinc-400">
+          Clears locally cached thumbnails only. Models, the SQLite index, review state, and OneDrive originals are kept.
+        </p>
+        <Button
           type="button"
-          disabled={busy}
-          onClick={() => void saveThresholds()}
-          className="rounded-md bg-black px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
-        >
-          Save thresholds
-        </button>
-        <button
-          type="button"
+          variant="secondary"
           disabled={busy}
           onClick={() => void clearThumbnails()}
-          className="rounded-md border px-4 py-2 text-sm font-medium disabled:opacity-50"
+          className="mt-4"
         >
           Clear thumbnail cache
-        </button>
+        </Button>
       </div>
 
-      {message ? <p className="text-sm text-gray-600">{message}</p> : null}
+      {message ? <p className="text-sm text-zinc-300" role="status">{message}</p> : null}
     </div>
   );
 }

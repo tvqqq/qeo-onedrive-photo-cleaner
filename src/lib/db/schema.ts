@@ -1,4 +1,4 @@
-export const SCHEMA_VERSION = 1;
+export const SCHEMA_VERSION = 2;
 
 export const INITIAL_SCHEMA = `
 CREATE TABLE IF NOT EXISTS drive_nodes (
@@ -29,6 +29,14 @@ CREATE TABLE IF NOT EXISTS photos (
   taken_at INTEGER,
   remote_created_at INTEGER,
   remote_modified_at INTEGER,
+  camera_make TEXT,
+  camera_model TEXT,
+  exposure_numerator INTEGER,
+  exposure_denominator INTEGER,
+  f_number REAL,
+  focal_length REAL,
+  iso INTEGER,
+  orientation INTEGER,
   etag TEXT,
   deleted_remote_at INTEGER,
   classification_reviewed INTEGER NOT NULL DEFAULT 0,
@@ -36,6 +44,11 @@ CREATE TABLE IF NOT EXISTS photos (
   updated_at INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS photos_quickxor_size_idx ON photos(quickxor_hash, size_bytes);
+CREATE INDEX IF NOT EXISTS photos_taken_idx ON photos(taken_at);
+CREATE INDEX IF NOT EXISTS photos_modified_idx ON photos(remote_modified_at);
+CREATE INDEX IF NOT EXISTS photos_mime_idx ON photos(mime_type);
+CREATE INDEX IF NOT EXISTS photos_camera_make_idx ON photos(camera_make);
+CREATE INDEX IF NOT EXISTS photos_camera_model_idx ON photos(camera_model);
 
 CREATE TABLE IF NOT EXISTS scan_state (
   key TEXT PRIMARY KEY,
@@ -108,6 +121,7 @@ CREATE TABLE IF NOT EXISTS photo_categories (
   reviewed_at INTEGER,
   PRIMARY KEY(photo_id, category_id)
 );
+CREATE INDEX IF NOT EXISTS photo_categories_category_photo_idx ON photo_categories(category_id, photo_id);
 
 CREATE TABLE IF NOT EXISTS album_sync (
   category_id TEXT PRIMARY KEY REFERENCES categories(id) ON DELETE CASCADE,
@@ -136,4 +150,21 @@ CREATE TABLE IF NOT EXISTS settings (
   value_json TEXT NOT NULL,
   updated_at INTEGER NOT NULL
 );
+`;
+
+export const MIGRATION_V2 = `
+ALTER TABLE photos ADD COLUMN camera_make TEXT;
+ALTER TABLE photos ADD COLUMN camera_model TEXT;
+ALTER TABLE photos ADD COLUMN exposure_numerator INTEGER;
+ALTER TABLE photos ADD COLUMN exposure_denominator INTEGER;
+ALTER TABLE photos ADD COLUMN f_number REAL;
+ALTER TABLE photos ADD COLUMN focal_length REAL;
+ALTER TABLE photos ADD COLUMN iso INTEGER;
+ALTER TABLE photos ADD COLUMN orientation INTEGER;
+CREATE INDEX IF NOT EXISTS photos_taken_idx ON photos(taken_at);
+CREATE INDEX IF NOT EXISTS photos_modified_idx ON photos(remote_modified_at);
+CREATE INDEX IF NOT EXISTS photos_mime_idx ON photos(mime_type);
+CREATE INDEX IF NOT EXISTS photos_camera_make_idx ON photos(camera_make);
+CREATE INDEX IF NOT EXISTS photos_camera_model_idx ON photos(camera_model);
+CREATE INDEX IF NOT EXISTS photo_categories_category_photo_idx ON photo_categories(category_id, photo_id);
 `;

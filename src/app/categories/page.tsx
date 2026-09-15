@@ -1,7 +1,8 @@
-import Link from "next/link";
 import { CategoryReviewCard } from "@/components/category-review-card";
 import { ClassifyPhotosButton } from "@/components/classify-photos-button";
 import { SyncAlbumButton } from "@/components/sync-album-button";
+import { Card } from "@/components/ui/card";
+import { PageHeader } from "@/components/ui/page-header";
 import { listCategoryReviewQueue } from "@/lib/classification/service";
 import { CATEGORY_NAMES, TAXONOMY } from "@/lib/classification/taxonomy";
 import { openAppDatabase } from "@/lib/db/client";
@@ -21,46 +22,64 @@ export default function CategoriesPage() {
   }
 
   return (
-    <main className="mx-auto max-w-6xl space-y-8 p-8">
-      <div>
-        <Link className="text-sm underline" href="/">← Dashboard</Link>
-        <h1 className="mt-4 text-2xl font-semibold">Category review</h1>
-        <p className="mt-2 text-sm text-gray-600">
-          Suggestions run locally. Review and correct labels before they are used for OneDrive album sync.
-        </p>
-      </div>
+    <main className="mx-auto max-w-[1500px] space-y-8 p-4 sm:p-6 lg:p-8">
+      <PageHeader
+        eyebrow="Organize"
+        title="Category review"
+        description="Suggestions run locally. Review labels against the photo metadata before approved categories are used for OneDrive album sync."
+      />
 
-      <ClassifyPhotosButton />
+      <Card className="p-5">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="max-w-2xl">
+            <h2 className="text-base font-semibold text-zinc-100">Local classification</h2>
+            <p className="mt-1 text-sm leading-6 text-zinc-400">
+              Rules run first, then the local CLIP model can suggest labels for photos that still need classification.
+            </p>
+          </div>
+          <ClassifyPhotosButton />
+        </div>
+      </Card>
 
-      <section className="space-y-3 rounded-xl border bg-white p-5">
+      <Card className="space-y-4 p-5">
         <div>
-          <h2 className="font-medium">OneDrive albums</h2>
-          <p className="mt-1 text-sm text-gray-600">
-            Sync adds reviewed, non-deleted photos only. v0.1 never removes existing album members automatically.
+          <h2 className="text-base font-semibold text-zinc-100">OneDrive albums</h2>
+          <p className="mt-1 text-sm leading-6 text-zinc-400">
+            Current safety policy is add-only: sync adds reviewed, non-deleted photos and never automatically removes existing album members.
           </p>
         </div>
-        <div className="grid gap-3 md:grid-cols-2">
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {TAXONOMY.filter((slug) => slug !== "other").map((slug) => (
             <SyncAlbumButton key={slug} categoryId={slug} categoryName={CATEGORY_NAMES[slug]} />
           ))}
         </div>
-      </section>
-
-      {items.length === 0 ? (
-        <p className="rounded-lg border p-5 text-sm text-gray-600">
-          No photos waiting for category review.
-        </p>
-      ) : null}
+      </Card>
 
       <section className="space-y-4">
-        {items.map((item) => (
-          <CategoryReviewCard
-            key={item.photoId}
-            photo={{ photoId: item.photoId, name: item.name, path: item.path }}
-            selectedSlugs={item.labels.map((label) => label.slug)}
-            labels={item.labels}
-          />
-        ))}
+        <div className="flex items-end justify-between gap-4">
+          <div>
+            <h2 className="text-xl font-semibold text-zinc-100">Photos waiting for review</h2>
+            <p className="mt-1 text-sm text-zinc-500">Showing up to 50 unreviewed photos at a time.</p>
+          </div>
+          <span className="text-sm text-zinc-500">{items.length} pending</span>
+        </div>
+
+        {items.length === 0 ? (
+          <p className="rounded-2xl border border-dashed border-zinc-800 bg-zinc-950/40 p-8 text-sm text-zinc-400">
+            No photos waiting for category review.
+          </p>
+        ) : (
+          <div className="grid gap-4 lg:grid-cols-2">
+            {items.map((item) => (
+              <CategoryReviewCard
+                key={item.photo.photoId}
+                photo={item.photo}
+                selectedSlugs={item.labels.map((label) => label.slug)}
+                labels={item.labels}
+              />
+            ))}
+          </div>
+        )}
       </section>
     </main>
   );

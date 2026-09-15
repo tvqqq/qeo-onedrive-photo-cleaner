@@ -10,10 +10,22 @@ export interface GraphDriveItem {
     hashes?: { quickXorHash?: string };
   };
   folder?: { childCount?: number };
+  image?: {
+    width?: number;
+    height?: number;
+  };
   photo?: {
     width?: number;
     height?: number;
     takenDateTime?: string;
+    cameraMake?: string;
+    cameraModel?: string;
+    exposureNumerator?: number;
+    exposureDenominator?: number;
+    fNumber?: number;
+    focalLength?: number;
+    iso?: number;
+    orientation?: number;
   };
   parentReference?: { id?: string };
   deleted?: { state?: string };

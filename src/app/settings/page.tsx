@@ -1,6 +1,9 @@
-import Link from "next/link";
 import { join } from "node:path";
 import { SettingsControls } from "@/components/settings-controls";
+import { Badge } from "@/components/ui/badge";
+import { buttonClass } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { PageHeader } from "@/components/ui/page-header";
 import { isMicrosoftConnected } from "@/lib/auth/msal";
 import { openAppDatabase } from "@/lib/db/client";
 import { migrateDatabase } from "@/lib/db/migrate";
@@ -9,14 +12,6 @@ import { getCleanerSettings } from "@/lib/settings/service";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
-
-function StatusBadge({ ok, children }: { ok: boolean; children: React.ReactNode }) {
-  return (
-    <span className={`inline-flex rounded-full px-2 py-1 text-xs font-medium ${ok ? "bg-green-100 text-green-900" : "bg-gray-100 text-gray-700"}`}>
-      {children}
-    </span>
-  );
-}
 
 export default async function SettingsPage() {
   const db = openAppDatabase();
@@ -38,53 +33,53 @@ export default async function SettingsPage() {
   const modelCache = join(env.DATA_DIR, "models");
 
   return (
-    <main className="mx-auto max-w-4xl space-y-8 p-8">
-      <div>
-        <Link className="text-sm underline" href="/">← Dashboard</Link>
-        <h1 className="mt-4 text-2xl font-semibold">Settings</h1>
-        <p className="mt-2 text-sm text-gray-600">
-          Local runtime, OneDrive connection, duplicate thresholds, and cache controls.
-        </p>
-      </div>
+    <main className="mx-auto max-w-5xl space-y-8 p-6 lg:p-8">
+      <PageHeader
+        eyebrow="Local runtime"
+        title="Settings"
+        description="Manage the OneDrive connection, runtime paths, duplicate thresholds, and disposable thumbnail cache without changing the cleanup safety model."
+      />
 
       <section className="grid gap-4 sm:grid-cols-2">
-        <div className="rounded-xl border bg-white p-5">
-          <p className="text-sm text-gray-500">Microsoft account</p>
-          <div className="mt-2 flex items-center gap-3">
-            <StatusBadge ok={connected}>{connected ? "Connected" : "Not connected"}</StatusBadge>
-            {!connected ? <a className="text-sm underline" href="/api/auth/login">Connect OneDrive</a> : null}
+        <Card className="p-5">
+          <p className="text-sm font-medium text-zinc-400">Microsoft account</p>
+          <div className="mt-3 flex flex-wrap items-center gap-3">
+            <Badge tone={connected ? "success" : "neutral"}>{connected ? "Connected" : "Not connected"}</Badge>
+            {!connected ? <a className={buttonClass("secondary")} href="/api/auth/login">Connect OneDrive</a> : null}
           </div>
-        </div>
-        <div className="rounded-xl border bg-white p-5">
-          <p className="text-sm text-gray-500">Runtime mode</p>
-          <div className="mt-2">
-            <StatusBadge ok={!env.DEMO_MODE}>{env.DEMO_MODE ? "Demo mode" : "Live mode"}</StatusBadge>
+          <p className="mt-3 text-xs leading-5 text-zinc-500">Delegated Files.ReadWrite access is stored in the encrypted local token cache.</p>
+        </Card>
+
+        <Card className="p-5">
+          <p className="text-sm font-medium text-zinc-400">Runtime mode</p>
+          <div className="mt-3">
+            <Badge tone={env.DEMO_MODE ? "warning" : "success"}>{env.DEMO_MODE ? "Demo mode" : "Live mode"}</Badge>
           </div>
-        </div>
-        <div className="rounded-xl border bg-white p-5">
-          <p className="text-sm text-gray-500">Data directory</p>
-          <p className="mt-2 break-all font-mono text-sm">{env.DATA_DIR}</p>
-        </div>
-        <div className="rounded-xl border bg-white p-5">
-          <p className="text-sm text-gray-500">Local vision model</p>
-          <p className="mt-2 text-sm font-medium">{env.CLIP_MODEL_ID}</p>
-          <p className="mt-1 break-all font-mono text-xs text-gray-500">Cache: {modelCache}</p>
-          <p className="mt-2 text-xs text-gray-500">Loaded lazily on first local inference. No cloud vision API is used.</p>
-        </div>
+          <p className="mt-3 text-xs leading-5 text-zinc-500">
+            Demo mode blocks destructive OneDrive mutations while keeping scan and review flows available.
+          </p>
+        </Card>
+
+        <Card className="p-5">
+          <p className="text-sm font-medium text-zinc-400">Data directory</p>
+          <p className="mt-3 break-all font-mono text-sm text-zinc-100">{env.DATA_DIR}</p>
+          <p className="mt-3 text-xs leading-5 text-zinc-500">SQLite state, encrypted auth cache, thumbnails, and local model cache persist here.</p>
+        </Card>
+
+        <Card className="p-5">
+          <p className="text-sm font-medium text-zinc-400">Local vision model</p>
+          <p className="mt-3 text-sm font-medium text-zinc-100">{env.CLIP_MODEL_ID}</p>
+          <p className="mt-2 break-all font-mono text-xs text-zinc-400">Cache: {modelCache}</p>
+          <p className="mt-3 text-xs leading-5 text-zinc-500">Loaded lazily for local inference. No cloud vision API is used.</p>
+        </Card>
       </section>
 
-      <section className="space-y-4 rounded-xl border bg-white p-5">
-        <div>
-          <h2 className="font-medium">Duplicate detection</h2>
-          <p className="mt-1 text-sm text-gray-600">
-            Defaults are conservative: dHash 8 and CLIP cosine 0.94. Similar matches remain review-only.
-          </p>
-        </div>
+      <Card className="p-5">
         <SettingsControls
           dhashThreshold={settings.dhashThreshold}
           clipThreshold={settings.clipThreshold}
         />
-      </section>
+      </Card>
     </main>
   );
 }
