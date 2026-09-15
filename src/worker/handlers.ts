@@ -12,6 +12,7 @@ import type { JobRecord } from "@/lib/jobs/types";
 import { DemoDriveApi } from "@/lib/scan/demo";
 import { runScanJob, type ScanMode } from "@/lib/scan/service";
 import { getCleanerSettings } from "@/lib/settings/service";
+import { runTagPhotosJob } from "@/lib/tags/service";
 
 const clipService = new ClipService();
 const zeroShotClassifier = new ZeroShotClassifier();
@@ -44,6 +45,9 @@ export async function dispatchJob(db: AppDatabase, job: JobRecord): Promise<void
     }
     case "classify":
       await runClassificationJob({ db, drive: driveApi(), classifier: zeroShotClassifier }, job.id);
+      return;
+    case "tag-photos":
+      await runTagPhotosJob({ db, drive: driveApi(), classifier: zeroShotClassifier }, job.id);
       return;
     default:
       throw new Error(`Job type ${job.type} is not implemented yet`);
