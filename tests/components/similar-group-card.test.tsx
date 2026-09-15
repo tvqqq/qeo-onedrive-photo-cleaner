@@ -42,7 +42,7 @@ describe("SimilarGroupCard", () => {
     ]} />);
 
     expect(screen.getByText("Heuristic — review only")).toBeTruthy();
-    expect(screen.getByText(/iPhone 15 Pro/)).toBeTruthy();
+    expect(screen.getAllByText(/iPhone 15 Pro/)).toHaveLength(2);
     expect(screen.getAllByText("4032 × 3024")).toHaveLength(2);
     expect(screen.queryByRole("checkbox")).toBeNull();
     expect(screen.queryByText(/recycle bin/i)).toBeNull();
