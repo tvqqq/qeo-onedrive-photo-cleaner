@@ -29,6 +29,16 @@ export interface PhotoRecord {
   focalLength: number | null;
   iso: number | null;
   orientation: number | null;
+  createdByUserName: string | null;
+  createdByDeviceName: string | null;
+  createdByDeviceId: string | null;
+  createdByApplicationName: string | null;
+  createdByApplicationId: string | null;
+  modifiedByUserName: string | null;
+  modifiedByDeviceName: string | null;
+  modifiedByDeviceId: string | null;
+  modifiedByApplicationName: string | null;
+  modifiedByApplicationId: string | null;
   etag: string | null;
   deletedRemoteAt: number | null;
 }
@@ -55,6 +65,16 @@ type PhotoRow = {
   focal_length: number | null;
   iso: number | null;
   orientation: number | null;
+  created_by_user_name: string | null;
+  created_by_device_name: string | null;
+  created_by_device_id: string | null;
+  created_by_application_name: string | null;
+  created_by_application_id: string | null;
+  modified_by_user_name: string | null;
+  modified_by_device_name: string | null;
+  modified_by_device_id: string | null;
+  modified_by_application_name: string | null;
+  modified_by_application_id: string | null;
   etag: string | null;
   deleted_remote_at: number | null;
 };
@@ -82,6 +102,16 @@ function mapPhoto(row: PhotoRow): PhotoRecord {
     focalLength: row.focal_length,
     iso: row.iso,
     orientation: row.orientation,
+    createdByUserName: row.created_by_user_name,
+    createdByDeviceName: row.created_by_device_name,
+    createdByDeviceId: row.created_by_device_id,
+    createdByApplicationName: row.created_by_application_name,
+    createdByApplicationId: row.created_by_application_id,
+    modifiedByUserName: row.modified_by_user_name,
+    modifiedByDeviceName: row.modified_by_device_name,
+    modifiedByDeviceId: row.modified_by_device_id,
+    modifiedByApplicationName: row.modified_by_application_name,
+    modifiedByApplicationId: row.modified_by_application_id,
     etag: row.etag,
     deletedRemoteAt: row.deleted_remote_at,
   };
@@ -91,7 +121,12 @@ const PHOTO_SELECT = `
   id, drive_item_id, name, path, size_bytes, mime_type, quickxor_hash, sha256,
   width, height, taken_at, remote_created_at, remote_modified_at,
   camera_make, camera_model, exposure_numerator, exposure_denominator,
-  f_number, focal_length, iso, orientation, etag, deleted_remote_at
+  f_number, focal_length, iso, orientation,
+  created_by_user_name, created_by_device_name, created_by_device_id,
+  created_by_application_name, created_by_application_id,
+  modified_by_user_name, modified_by_device_name, modified_by_device_id,
+  modified_by_application_name, modified_by_application_id,
+  etag, deleted_remote_at
 `;
 
 export function findPhotoByDriveId(db: AppDatabase, driveItemId: string): PhotoRecord | null {
@@ -177,9 +212,21 @@ export function upsertPhoto(db: AppDatabase, item: GraphDriveItem, now = Date.no
       id, drive_item_id, name, path, size_bytes, mime_type, quickxor_hash,
       width, height, taken_at, remote_created_at, remote_modified_at,
       camera_make, camera_model, exposure_numerator, exposure_denominator,
-      f_number, focal_length, iso, orientation, etag,
-      deleted_remote_at, created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?)
+      f_number, focal_length, iso, orientation,
+      created_by_user_name, created_by_device_name, created_by_device_id,
+      created_by_application_name, created_by_application_id,
+      modified_by_user_name, modified_by_device_name, modified_by_device_id,
+      modified_by_application_name, modified_by_application_id,
+      etag, deleted_remote_at, created_at, updated_at
+    ) VALUES (
+      ?, ?, ?, ?, ?, ?, ?,
+      ?, ?, ?, ?, ?,
+      ?, ?, ?, ?,
+      ?, ?, ?, ?,
+      ?, ?, ?, ?, ?,
+      ?, ?, ?, ?, ?,
+      ?, NULL, ?, ?
+    )
     ON CONFLICT(drive_item_id) DO UPDATE SET
       name = excluded.name, path = excluded.path, size_bytes = excluded.size_bytes,
       mime_type = excluded.mime_type, quickxor_hash = excluded.quickxor_hash,
@@ -190,6 +237,16 @@ export function upsertPhoto(db: AppDatabase, item: GraphDriveItem, now = Date.no
       exposure_denominator = excluded.exposure_denominator,
       f_number = excluded.f_number, focal_length = excluded.focal_length,
       iso = excluded.iso, orientation = excluded.orientation,
+      created_by_user_name = excluded.created_by_user_name,
+      created_by_device_name = excluded.created_by_device_name,
+      created_by_device_id = excluded.created_by_device_id,
+      created_by_application_name = excluded.created_by_application_name,
+      created_by_application_id = excluded.created_by_application_id,
+      modified_by_user_name = excluded.modified_by_user_name,
+      modified_by_device_name = excluded.modified_by_device_name,
+      modified_by_device_id = excluded.modified_by_device_id,
+      modified_by_application_name = excluded.modified_by_application_name,
+      modified_by_application_id = excluded.modified_by_application_id,
       sha256 = CASE WHEN photos.etag = excluded.etag THEN photos.sha256 ELSE NULL END,
       sha256_etag = CASE WHEN photos.etag = excluded.etag THEN photos.sha256_etag ELSE NULL END,
       etag = excluded.etag, deleted_remote_at = NULL, updated_at = excluded.updated_at
@@ -214,6 +271,16 @@ export function upsertPhoto(db: AppDatabase, item: GraphDriveItem, now = Date.no
     photo?.focalLength ?? null,
     photo?.iso ?? null,
     photo?.orientation ?? null,
+    item.createdBy?.user?.displayName ?? null,
+    item.createdBy?.device?.displayName ?? null,
+    item.createdBy?.device?.id ?? null,
+    item.createdBy?.application?.displayName ?? null,
+    item.createdBy?.application?.id ?? null,
+    item.lastModifiedBy?.user?.displayName ?? null,
+    item.lastModifiedBy?.device?.displayName ?? null,
+    item.lastModifiedBy?.device?.id ?? null,
+    item.lastModifiedBy?.application?.displayName ?? null,
+    item.lastModifiedBy?.application?.id ?? null,
     item.eTag ?? null,
     createdAt,
     now,
