@@ -1,15 +1,12 @@
 /** @vitest-environment jsdom */
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { JobProgress } from "@/components/job-progress";
 
 const fetchMock = vi.fn();
 vi.stubGlobal("fetch", fetchMock);
 
-afterEach(() => {
-  cleanup();
-  vi.useRealTimers();
-});
+afterEach(cleanup);
 
 beforeEach(() => {
   fetchMock.mockReset();
@@ -17,7 +14,6 @@ beforeEach(() => {
 
 describe("JobProgress", () => {
   it("tracks full scan mode and never invents a percentage when total is unknown", async () => {
-    vi.useFakeTimers();
     fetchMock
       .mockResolvedValueOnce(new Response(JSON.stringify({ jobId: "job-1" }), {
         status: 200,
@@ -44,17 +40,13 @@ describe("JobProgress", () => {
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
     const [, postInit] = fetchMock.mock.calls[0]!;
     expect(JSON.parse(String(postInit.body))).toEqual({ mode: "full" });
-    expect(screen.getByText("Full scan")).toBeTruthy();
+    expect(screen.getByText("Mode")).toBeTruthy();
+    expect(screen.getAllByText("Full scan")).toHaveLength(2);
     expect(screen.getByText("running")).toBeTruthy();
     expect(screen.getByText(/Processed 12/)).toBeTruthy();
     expect(document.body.textContent).not.toMatch(/\d+%/);
 
-    await act(async () => {
-      vi.advanceTimersByTime(1000);
-      await Promise.resolve();
-    });
-
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3), { timeout: 2000 });
     expect(screen.getByText("completed")).toBeTruthy();
     expect(screen.getByText(/Processed 25/)).toBeTruthy();
   });
