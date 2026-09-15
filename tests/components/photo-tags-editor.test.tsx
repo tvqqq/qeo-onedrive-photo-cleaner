@@ -85,7 +85,7 @@ describe("PhotoTagsEditor", () => {
     render(<PhotoTagsEditor photoId="photo-1" tags={[screenshotTag]} onTagsChange={onTagsChange} />);
     fireEvent.click(screen.getByRole("button", { name: /remove screenshot/i }));
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("Photo is not available");
+    expect((await screen.findByRole("alert")).textContent).toContain("Photo is not available");
     expect(onTagsChange).not.toHaveBeenCalled();
   });
 });
