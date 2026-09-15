@@ -1,6 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+
+type ScanMode = "full" | "incremental";
 
 type Job = {
   id: string;
@@ -10,9 +15,17 @@ type Job = {
   error: string | null;
 };
 
+function statusTone(status: Job["status"]): "neutral" | "info" | "success" | "danger" {
+  if (status === "running") return "info";
+  if (status === "completed") return "success";
+  if (status === "failed") return "danger";
+  return "neutral";
+}
+
 export function JobProgress() {
   const [jobId, setJobId] = useState<string | null>(null);
   const [job, setJob] = useState<Job | null>(null);
+  const [mode, setMode] = useState<ScanMode | null>(null);
   const [starting, setStarting] = useState(false);
 
   useEffect(() => {
@@ -37,14 +50,16 @@ export function JobProgress() {
     };
   }, [jobId]);
 
-  async function start(mode: "full" | "incremental") {
+  async function start(nextMode: ScanMode) {
     setStarting(true);
+    setMode(nextMode);
+    setJobId(null);
     setJob(null);
     try {
       const response = await fetch("/api/scan", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ mode }),
+        body: JSON.stringify({ mode: nextMode }),
       });
       const body = await response.json() as { jobId?: string; error?: string };
       if (!response.ok || !body.jobId) throw new Error(body.error ?? "Unable to start scan");
@@ -63,30 +78,53 @@ export function JobProgress() {
   }
 
   return (
-    <section className="space-y-4 rounded-lg border p-5">
+    <Card className="space-y-5 p-5">
       <div className="flex flex-wrap gap-3">
-        <button
-          className="rounded-md bg-black px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+        <Button
+          variant="primary"
           disabled={starting}
           onClick={() => void start("incremental")}
         >
           Incremental scan
-        </button>
-        <button
-          className="rounded-md border px-4 py-2 text-sm font-medium disabled:opacity-50"
+        </Button>
+        <Button
+          variant="secondary"
           disabled={starting}
           onClick={() => void start("full")}
         >
           Full scan
-        </button>
+        </Button>
       </div>
-      {job && (
-        <div className="text-sm">
-          <p>Status: <strong>{job.status}</strong></p>
-          <p>Processed: {job.progressCurrent}</p>
-          {job.error && <p className="text-red-600">{job.error}</p>}
+
+      {job ? (
+        <div className="grid gap-4 border-t border-zinc-800 pt-5 text-sm sm:grid-cols-3">
+          <div>
+            <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">Mode</p>
+            <p className="mt-2 font-medium text-zinc-100">
+              {mode === "full" ? "Full scan" : "Incremental scan"}
+            </p>
+          </div>
+          <div>
+            <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">Status</p>
+            <div className="mt-2">
+              <Badge tone={statusTone(job.status)}>{job.status}</Badge>
+            </div>
+          </div>
+          <div>
+            <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">Progress</p>
+            <p className="mt-2 font-medium text-zinc-100">
+              {job.progressTotal === null
+                ? `Processed ${job.progressCurrent.toLocaleString()}`
+                : `Processed ${job.progressCurrent.toLocaleString()} / ${job.progressTotal.toLocaleString()}`}
+            </p>
+          </div>
+          {job.error ? (
+            <p className="sm:col-span-3 rounded-lg border border-red-900/80 bg-red-950/40 px-3 py-2 text-red-200">
+              {job.error}
+            </p>
+          ) : null}
         </div>
-      )}
-    </section>
+      ) : null}
+    </Card>
   );
 }
