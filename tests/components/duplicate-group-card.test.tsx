@@ -57,7 +57,7 @@ describe("DuplicateGroupCard", () => {
 
     expect(screen.getByText("Recommended keep")).toBeTruthy();
     expect(screen.getByText(/Verified SHA-256/i)).toBeTruthy();
-    expect(screen.getByText(/iPhone 15 Pro/)).toBeTruthy();
+    expect(screen.getAllByText(/iPhone 15 Pro/)).toHaveLength(2);
     expect(screen.getAllByText("4032 × 3024")).toHaveLength(2);
     expect(screen.getAllByRole("checkbox")).toHaveLength(1);
     expect(screen.queryByRole("checkbox", { name: /keeper/i })).toBeNull();
@@ -72,6 +72,6 @@ describe("DuplicateGroupCard", () => {
       groupId: "exact-1",
       selectedPhotoIds: ["copy"],
     });
-    expect(await screen.findByText(/OneDrive Recycle Bin/i)).toBeTruthy();
+    expect(await screen.findByRole("status")).toHaveTextContent(/OneDrive Recycle Bin/i);
   });
 });
