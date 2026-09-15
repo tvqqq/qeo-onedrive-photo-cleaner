@@ -14,8 +14,11 @@ describe("DriveApi", () => {
     const page = await drive.getDeltaPage();
 
     expect(json).toHaveBeenCalledWith(expect.stringContaining("/me/drive/root/delta?$select="));
-    expect(String(json.mock.calls[0]![0])).toContain("photo");
-    expect(String(json.mock.calls[0]![0])).toContain("image");
+    const path = String(json.mock.calls[0]![0]);
+    expect(path).toContain("photo");
+    expect(path).toContain("image");
+    expect(path).toContain("createdBy");
+    expect(path).toContain("lastModifiedBy");
     expect(page.nextLink).toBe("https://graph.microsoft.com/v1.0/next?a=b");
     expect(page.deltaLink).toBe("https://graph.microsoft.com/v1.0/delta?token=opaque");
 
