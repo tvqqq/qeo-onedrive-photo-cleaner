@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import { createDatabase } from "@/lib/db/client";
 import { migrateDatabase } from "@/lib/db/migrate";
 import { listPhotos } from "@/lib/photos/repository";
+import { applyManualTag, ensureAiVocabulary } from "@/lib/tags/repository";
 
 function database() {
   const db = createDatabase(join(mkdtempSync(join(tmpdir(), "qeo-photos-")), "test.db"));
@@ -82,6 +83,23 @@ describe("listPhotos", () => {
       takenFrom: Date.parse("2026-01-01T00:00:00Z"),
       takenTo: Date.parse("2026-01-31T23:59:59.999Z"),
     }).items.map((p) => p.name)).toEqual(["trip.jpg", "phone.jpg"]);
+    db.close();
+  });
+
+  it("requires every requested hashtag and ignores removed tag state", () => {
+    const db = database();
+    ensureAiVocabulary(db);
+    applyManualTag(db, "phone", "Document", "active");
+    applyManualTag(db, "phone", "Screenshot", "active");
+    applyManualTag(db, "trip", "Document", "active");
+    applyManualTag(db, "trip", "Screenshot", "removed");
+
+    expect(listPhotos(db, {
+      page: 1,
+      pageSize: 60,
+      sort: "taken-desc",
+      tagSlugs: ["document", "screenshot"],
+    }).items.map((p) => p.name)).toEqual(["phone.jpg"]);
     db.close();
   });
 
