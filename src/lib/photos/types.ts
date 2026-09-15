@@ -32,3 +32,22 @@ export type PhotoSort =
   | "size-asc"
   | "name-asc"
   | "name-desc";
+
+export interface PhotoQuery {
+  page: number;
+  pageSize: number;
+  sort: PhotoSort;
+  search?: string;
+  mimeType?: string;
+  category?: string;
+  takenFrom?: number;
+  takenTo?: number;
+}
+
+export interface PhotoPageResult {
+  items: PhotoMetadata[];
+  page: number;
+  pageSize: number;
+  total: number;
+  totalPages: number;
+}
