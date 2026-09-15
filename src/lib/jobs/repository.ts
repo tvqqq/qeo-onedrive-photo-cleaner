@@ -4,7 +4,7 @@ import type { JobRecord, JobType, WorkerLane } from "@/lib/jobs/types";
 
 const JOB_TYPES_BY_LANE = {
   core: ["scan", "verify-exact"],
-  ml: ["classify", "find-similar"],
+  ml: ["classify", "find-similar", "tag-photos"],
 } as const satisfies Record<WorkerLane, readonly JobType[]>;
 
 type JobRow = {
