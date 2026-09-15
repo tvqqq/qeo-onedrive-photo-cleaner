@@ -1,6 +1,11 @@
 import { randomUUID } from "node:crypto";
 import type { AppDatabase } from "@/lib/db/client";
-import type { JobRecord, JobType } from "@/lib/jobs/types";
+import type { JobRecord, JobType, WorkerLane } from "@/lib/jobs/types";
+
+const JOB_TYPES_BY_LANE = {
+  core: ["scan", "verify-exact"],
+  ml: ["classify", "find-similar"],
+} as const satisfies Record<WorkerLane, readonly JobType[]>;
 
 type JobRow = {
   id: string;
@@ -32,6 +37,10 @@ function mapRow(row: JobRow): JobRecord {
   };
 }
 
+export function jobTypesForLane(lane: WorkerLane): readonly JobType[] {
+  return JOB_TYPES_BY_LANE[lane];
+}
+
 export function enqueueJob(db: AppDatabase, type: JobType, payload: unknown): string {
   const id = randomUUID();
   const now = Date.now();
@@ -47,15 +56,18 @@ export function getJob(db: AppDatabase, id: string): JobRecord | null {
   return row ? mapRow(row) : null;
 }
 
-export function claimNextJob(db: AppDatabase): JobRecord | null {
+export function claimNextJob(db: AppDatabase, lane: WorkerLane = "core"): JobRecord | null {
+  const types = jobTypesForLane(lane);
+  const placeholders = types.map(() => "?").join(", ");
+
   db.exec("BEGIN IMMEDIATE");
   try {
     const row = db.prepare(`
       SELECT * FROM jobs
-      WHERE status = 'queued'
+      WHERE status = 'queued' AND type IN (${placeholders})
       ORDER BY created_at ASC, id ASC
       LIMIT 1
-    `).get() as JobRow | undefined;
+    `).get(...types) as JobRow | undefined;
 
     if (!row) {
       db.exec("COMMIT");
@@ -76,13 +88,15 @@ export function claimNextJob(db: AppDatabase): JobRecord | null {
   }
 }
 
-export function requeueInterruptedJobs(db: AppDatabase): number {
+export function requeueInterruptedJobs(db: AppDatabase, lane: WorkerLane = "core"): number {
+  const types = jobTypesForLane(lane);
+  const placeholders = types.map(() => "?").join(", ");
   const now = Date.now();
   const result = db.prepare(`
     UPDATE jobs
     SET status = 'queued', started_at = NULL, updated_at = ?
-    WHERE status = 'running'
-  `).run(now);
+    WHERE status = 'running' AND type IN (${placeholders})
+  `).run(now, ...types);
   return Number(result.changes);
 }
 
