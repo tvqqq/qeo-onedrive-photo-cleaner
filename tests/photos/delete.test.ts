@@ -35,6 +35,21 @@ describe("deleteLibraryPhoto", () => {
     expect(drive.deleteItem).not.toHaveBeenCalled();
   });
 
+  it("rejects unknown or already-deleted local photos before Graph", async () => {
+    const db = setup();
+    const drive = { getItem: vi.fn(), deleteItem: vi.fn() };
+
+    await expect(deleteLibraryPhoto({ db, drive, demoMode: false }, "missing"))
+      .rejects.toThrow("Photo is not available");
+
+    db.prepare("UPDATE photos SET deleted_remote_at = ? WHERE id = 'photo-1'").run(Date.now());
+    await expect(deleteLibraryPhoto({ db, drive, demoMode: false }, "photo-1"))
+      .rejects.toThrow("Photo is not available");
+
+    expect(drive.getItem).not.toHaveBeenCalled();
+    expect(drive.deleteItem).not.toHaveBeenCalled();
+  });
+
   it("requires local and remote ETags to exist and match exactly", async () => {
     const missingLocal = setup(null);
     const missingLocalDrive = { getItem: vi.fn(), deleteItem: vi.fn() };
