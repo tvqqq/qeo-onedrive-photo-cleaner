@@ -1,6 +1,7 @@
 const GRAPH_BASE_URL = "https://graph.microsoft.com/v1.0";
 const RETRYABLE_STATUS = new Set([429, 502, 503, 504]);
 const MAX_ATTEMPTS = 5;
+const MAX_ERROR_BODY_LENGTH = 500;
 
 type TokenProvider = () => Promise<string>;
 type FetchLike = typeof fetch;
@@ -9,6 +10,18 @@ type Sleep = (milliseconds: number) => Promise<void>;
 export interface GraphClientOptions {
   fetch?: FetchLike;
   sleep?: Sleep;
+}
+
+export class GraphRequestError extends Error {
+  override readonly name = "GraphRequestError";
+
+  constructor(
+    readonly status: number,
+    readonly code: string | null,
+    readonly body: string,
+  ) {
+    super(`Microsoft Graph request failed (${status})${body ? `: ${body.slice(0, MAX_ERROR_BODY_LENGTH)}` : ""}`);
+  }
 }
 
 function defaultSleep(milliseconds: number) {
@@ -43,6 +56,16 @@ function assertNonDestructivePath(url: URL): void {
   }
 }
 
+function graphErrorCode(body: string): string | null {
+  if (!body) return null;
+  try {
+    const parsed = JSON.parse(body) as { error?: { code?: unknown } };
+    return typeof parsed.error?.code === "string" ? parsed.error.code : null;
+  } catch {
+    return null;
+  }
+}
+
 export class GraphClient {
   private readonly fetchImpl: FetchLike;
   private readonly sleep: Sleep;
@@ -72,8 +95,8 @@ export class GraphClient {
         continue;
       }
 
-      const body = await response.text().catch(() => "");
-      throw new Error(`Microsoft Graph request failed (${response.status})${body ? `: ${body.slice(0, 500)}` : ""}`);
+      const body = (await response.text().catch(() => "")).slice(0, MAX_ERROR_BODY_LENGTH);
+      throw new GraphRequestError(response.status, graphErrorCode(body), body);
     }
 
     throw new Error("Microsoft Graph retry limit reached");
