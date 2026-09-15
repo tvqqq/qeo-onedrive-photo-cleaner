@@ -100,6 +100,7 @@ function mapPhoto(row: ReviewRow): PhotoMetadata {
     etag: row.etag,
     quickxorHash: row.quickxor_hash,
     sha256: row.sha256,
+    tags: [],
   };
 }
 
