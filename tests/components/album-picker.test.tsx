@@ -39,7 +39,7 @@ describe("AlbumPicker", () => {
     expect(screen.getByRole("option", { name: "Travel 2026" })).toBeTruthy();
     expect(screen.queryByRole("button", { name: /create/i })).toBeNull();
 
-    fireEvent.change(screen.getByPlaceholderText(/search albums/i), { target: { value: "travel" } });
+    fireEvent.change(screen.getByPlaceholderText(/search existing albums/i), { target: { value: "travel" } });
     expect(screen.queryByRole("option", { name: "Family" })).toBeNull();
     expect(screen.getByRole("option", { name: "Travel 2026" })).toBeTruthy();
   });
@@ -91,6 +91,6 @@ describe("AlbumPicker", () => {
     }));
     render(<AlbumPicker photoId="photo-1" />);
     fireEvent.click(screen.getByRole("button", { name: /add to album/i }));
-    expect((await screen.findByRole("alert")).textContent).toContain("OneDrive unavailable");
+    expect((await screen.findByRole("status")).textContent).toContain("OneDrive unavailable");
   });
 });
