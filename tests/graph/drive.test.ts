@@ -3,7 +3,7 @@ import { DriveApi } from "@/lib/graph/drive";
 import type { GraphClient } from "@/lib/graph/client";
 
 describe("DriveApi", () => {
-  it("preserves Graph nextLink and deltaLink verbatim", async () => {
+  it("preserves Graph nextLink and deltaLink verbatim while selecting photo facets initially", async () => {
     const json = vi.fn().mockResolvedValue({
       value: [{ id: "1", name: "photo.jpg" }],
       "@odata.nextLink": "https://graph.microsoft.com/v1.0/next?a=b",
@@ -13,8 +13,14 @@ describe("DriveApi", () => {
 
     const page = await drive.getDeltaPage();
 
+    expect(json).toHaveBeenCalledWith(expect.stringContaining("/me/drive/root/delta?$select="));
+    expect(String(json.mock.calls[0]![0])).toContain("photo");
+    expect(String(json.mock.calls[0]![0])).toContain("image");
     expect(page.nextLink).toBe("https://graph.microsoft.com/v1.0/next?a=b");
     expect(page.deltaLink).toBe("https://graph.microsoft.com/v1.0/delta?token=opaque");
+
+    await drive.getDeltaPage(page.nextLink);
+    expect(json).toHaveBeenNthCalledWith(2, page.nextLink);
   });
 
   it("uses If-Match for reviewed recycle-bin deletion", async () => {

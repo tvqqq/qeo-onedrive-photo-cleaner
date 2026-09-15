@@ -53,6 +53,56 @@ describe("scan service", () => {
     expect(getScanState(db, "deltaLink")).toBe(page.deltaLink);
   });
 
+  it("persists Graph image dimensions and camera metadata", async () => {
+    const db = database();
+    const jobId = enqueueJob(db, "scan", { mode: "incremental" });
+    claimNextJob(db);
+    const page: DeltaPage = {
+      items: [item({
+        id: "metadata-photo",
+        name: "IMG_0001.JPG",
+        size: 4_200_000,
+        eTag: "meta-v1",
+        createdDateTime: "2026-09-01T01:00:00Z",
+        lastModifiedDateTime: "2026-09-02T02:00:00Z",
+        file: { mimeType: "image/jpeg", hashes: { quickXorHash: "qx-meta" } },
+        image: { width: 4032, height: 3024 },
+        photo: {
+          width: 10,
+          height: 10,
+          takenDateTime: "2026-08-31T03:04:05Z",
+          cameraMake: "Apple",
+          cameraModel: "iPhone 15 Pro",
+          exposureNumerator: 1,
+          exposureDenominator: 120,
+          fNumber: 1.78,
+          focalLength: 6.86,
+          iso: 80,
+          orientation: 1,
+        },
+      })],
+      deltaLink: "https://graph.microsoft.com/v1.0/me/drive/root/delta?token=metadata",
+    };
+    const drive = { getDeltaPage: vi.fn().mockResolvedValue(page) };
+
+    await runScanJob({ db, drive }, jobId, "incremental");
+
+    const photo = findPhotoByDriveId(db, "metadata-photo") as ReturnType<typeof findPhotoByDriveId> & Record<string, unknown>;
+    expect(photo?.width).toBe(4032);
+    expect(photo?.height).toBe(3024);
+    expect(photo?.cameraMake).toBe("Apple");
+    expect(photo?.cameraModel).toBe("iPhone 15 Pro");
+    expect(photo?.exposureNumerator).toBe(1);
+    expect(photo?.exposureDenominator).toBe(120);
+    expect(photo?.fNumber).toBe(1.78);
+    expect(photo?.focalLength).toBe(6.86);
+    expect(photo?.iso).toBe(80);
+    expect(photo?.orientation).toBe(1);
+    expect(photo?.takenAt).toBe(Date.parse("2026-08-31T03:04:05Z"));
+    expect(photo?.remoteCreatedAt).toBe(Date.parse("2026-09-01T01:00:00Z"));
+    expect(photo?.remoteModifiedAt).toBe(Date.parse("2026-09-02T02:00:00Z"));
+  });
+
   it("checkpoints nextLink and committed photos before a later page fails", async () => {
     const db = database();
     const jobId = enqueueJob(db, "scan", { mode: "incremental" });
