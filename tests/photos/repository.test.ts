@@ -27,6 +27,13 @@ function database() {
     insertNode.run(`drive-${id}`, name, now);
     insertPhoto.run(id, `drive-${id}`, name, path, size, mime, width, height, taken, modified, make, model, now, now);
   }
+  db.prepare(`
+    UPDATE photos SET
+      created_by_device_name = 'iPhone',
+      created_by_application_name = 'OneDrive',
+      modified_by_device_name = 'Mac mini'
+    WHERE id = 'phone'
+  `).run();
   db.prepare("INSERT INTO categories(id,slug,name) VALUES ('travel','travel','Travel')").run();
   db.prepare("INSERT INTO photo_categories(photo_id,category_id,source,manual_state) VALUES ('trip','travel','manual','added')").run();
   db.prepare("INSERT INTO photo_categories(photo_id,category_id,source,manual_state) VALUES ('phone','travel','manual','removed')").run();
@@ -45,6 +52,20 @@ describe("listPhotos", () => {
       .toEqual(["phone.jpg"]);
     expect(listPhotos(db, { page: 1, pageSize: 60, sort: "taken-desc", search: "Trips" }).items.map((p) => p.name))
       .toEqual(["trip.jpg"]);
+    db.close();
+  });
+
+  it("maps source identity metadata onto PhotoMetadata", () => {
+    const db = database();
+
+    const phone = listPhotos(db, { page: 1, pageSize: 60, sort: "name-asc" }).items
+      .find((photo) => photo.photoId === "phone");
+
+    expect(phone?.createdByDeviceName).toBe("iPhone");
+    expect(phone?.createdByApplicationName).toBe("OneDrive");
+    expect(phone?.modifiedByDeviceName).toBe("Mac mini");
+    expect(phone?.createdByUserName).toBeNull();
+    expect(phone?.modifiedByApplicationId).toBeNull();
     db.close();
   });
 
