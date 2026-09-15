@@ -11,6 +11,7 @@ import { GraphClient, GraphRequestError } from "@/lib/graph/client";
 import { DriveApi } from "@/lib/graph/drive";
 import { enqueueJobIfIdle } from "@/lib/jobs/repository";
 import { deleteLibraryPhoto } from "@/lib/photos/delete";
+import { redactError } from "@/lib/security/redact";
 import { assertSameOriginJson } from "@/lib/security/request";
 import { applyManualTag } from "@/lib/tags/repository";
 
@@ -104,7 +105,6 @@ export async function POST(request: Request) {
       db.close();
     }
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Photo action failed";
-    return NextResponse.json({ error: message }, { status: 400 });
+    return NextResponse.json({ error: redactError(error) }, { status: 400 });
   }
 }
