@@ -44,7 +44,7 @@ jobs:
             -e APP_BASE_URL=http://localhost:3000 \
             -e DATA_DIR=/data \
             qeo-onedrive-photo-cleaner:ci
-          trap 'docker rm -f qeo-photo-cleaner-ci >/dev/null 2>&1 || true' EXIT
+          trap 'docker rm -f qeo-photo-cleaner-ci qeo-photo-cleaner-worker-ci >/dev/null 2>&1 || true' EXIT
 
           ready=0
           for attempt in $(seq 1 30); do
@@ -53,7 +53,7 @@ jobs:
               break
             fi
             if [ "$(docker inspect -f '{{.State.Running}}' qeo-photo-cleaner-ci 2>/dev/null || echo false)" != "true" ]; then
-              echo "Container exited before becoming healthy"
+              echo "Web container exited before becoming healthy"
               docker logs qeo-photo-cleaner-ci || true
               exit 1
             fi
@@ -61,13 +61,26 @@ jobs:
           done
 
           if [ "$ready" -ne 1 ]; then
-            echo "Container did not become healthy in time"
+            echo "Web container did not become healthy in time"
             docker logs qeo-photo-cleaner-ci || true
             exit 1
           fi
 
           curl --fail --silent --show-error http://127.0.0.1:3000/api/health
           curl --fail --silent --show-error http://127.0.0.1:3000/ >/dev/null
+
+          docker run -d --name qeo-photo-cleaner-worker-ci \
+            -e DEMO_MODE=1 \
+            -e APP_BASE_URL=http://localhost:3000 \
+            -e DATA_DIR=/data \
+            qeo-onedrive-photo-cleaner:ci npm run worker
+
+          sleep 2
+          if [ "$(docker inspect -f '{{.State.Running}}' qeo-photo-cleaner-worker-ci 2>/dev/null || echo false)" != "true" ]; then
+            echo "Worker exited during startup"
+            docker logs qeo-photo-cleaner-worker-ci || true
+            exit 1
+          fi
 
   secrets:
     runs-on: ubuntu-latest
