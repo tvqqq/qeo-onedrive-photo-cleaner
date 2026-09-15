@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { normalizePhotoQuery } from "@/lib/photos/query";
+import { normalizePhotoQuery, parsePhotoSearch } from "@/lib/photos/query";
 
 describe("normalizePhotoQuery", () => {
   it("falls back safely for invalid query parameters", () => {
@@ -32,5 +32,17 @@ describe("normalizePhotoQuery", () => {
     });
     expect(query.takenFrom).toBe(Date.parse("2026-01-01T00:00:00.000Z"));
     expect(query.takenTo).toBe(Date.parse("2026-01-31T23:59:59.999Z"));
+  });
+
+  it("separates free text from normalized deduplicated hashtags", () => {
+    expect(parsePhotoSearch("invoice #Document #gia-đình #DOCUMENT")).toEqual({
+      text: "invoice",
+      tagSlugs: ["document", "gia-dinh"],
+    });
+
+    expect(normalizePhotoQuery({ q: "invoice #Document #gia-đình" })).toMatchObject({
+      search: "invoice",
+      tagSlugs: ["document", "gia-dinh"],
+    });
   });
 });
