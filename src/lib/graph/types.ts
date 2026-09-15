@@ -23,6 +23,10 @@ export interface GraphDriveItem {
     hashes?: { quickXorHash?: string };
   };
   folder?: { childCount?: number };
+  bundle?: {
+    album?: Record<string, unknown>;
+    childCount?: number;
+  };
   image?: {
     width?: number;
     height?: number;
@@ -42,6 +46,16 @@ export interface GraphDriveItem {
   };
   parentReference?: { id?: string };
   deleted?: { state?: string };
+}
+
+export interface DriveAlbum {
+  id: string;
+  name: string;
+}
+
+export interface GraphCollectionResponse<T> {
+  value?: T[];
+  "@odata.nextLink"?: string;
 }
 
 export interface DeltaPage {
