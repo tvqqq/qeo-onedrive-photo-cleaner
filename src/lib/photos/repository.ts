@@ -82,6 +82,7 @@ function mapPhoto(row: PhotoRow): PhotoMetadata {
     etag: row.etag,
     quickxorHash: row.quickxor_hash,
     sha256: row.sha256,
+    tags: [],
   };
 }
 
@@ -117,7 +118,7 @@ function buildWhere(query: PhotoQuery): { sql: string; args: Array<string | numb
       JOIN tags t ON t.id = pt.tag_id
       WHERE pt.photo_id = p.id
         AND pt.state = 'active'
-        AND t.slug = ?
+        AND t.slug = ? COLLATE NOCASE
     )`);
     args.push(slug);
   }
