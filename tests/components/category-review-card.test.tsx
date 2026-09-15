@@ -1,12 +1,38 @@
 /** @vitest-environment jsdom */
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type { PhotoMetadata } from "@/lib/photos/types";
 
 const fetchMock = vi.fn();
 vi.stubGlobal("fetch", fetchMock);
-vi.mock("@/components/photo-thumb", () => ({ PhotoThumb: ({ alt }: { alt: string }) => <span>{alt}</span> }));
+vi.mock("@/components/photo-thumb", () => ({ PhotoThumb: () => <div data-testid="photo-thumb" /> }));
 
 import { CategoryReviewCard } from "@/components/category-review-card";
+
+const photo: PhotoMetadata = {
+  photoId: "photo-1",
+  driveItemId: "drive-1",
+  name: "holiday.jpg",
+  path: "/Camera/holiday.jpg",
+  sizeBytes: 2_000_000,
+  mimeType: "image/jpeg",
+  width: 4032,
+  height: 3024,
+  takenAt: 1_788_000_000_000,
+  remoteCreatedAt: null,
+  remoteModifiedAt: null,
+  cameraMake: "Apple",
+  cameraModel: "iPhone 15 Pro",
+  exposureNumerator: 1,
+  exposureDenominator: 120,
+  fNumber: 1.78,
+  focalLength: 6.86,
+  iso: 80,
+  orientation: 1,
+  etag: "v1",
+  quickxorHash: null,
+  sha256: null,
+};
 
 afterEach(cleanup);
 beforeEach(() => {
@@ -17,20 +43,23 @@ beforeEach(() => {
 });
 
 describe("CategoryReviewCard", () => {
-  it("shows category source and confidence", () => {
+  it("shows photo metadata alongside category source and confidence", () => {
     render(<CategoryReviewCard
-      photo={{ photoId: "photo-1", name: "holiday.jpg", path: "/Camera/holiday.jpg" }}
+      photo={photo}
       selectedSlugs={["travel"]}
       labels={[{ slug: "travel", name: "Travel", source: "local-ai", confidence: 0.78 }]}
     />);
 
+    expect(screen.getByText("Needs review")).toBeTruthy();
+    expect(screen.getByText("4032 × 3024")).toBeTruthy();
+    expect(screen.getByText(/iPhone 15 Pro/)).toBeTruthy();
     expect(screen.getByText(/local-ai/i)).toBeTruthy();
     expect(screen.getByText(/78%/)).toBeTruthy();
   });
 
   it("saves category differences as manual review", async () => {
     render(<CategoryReviewCard
-      photo={{ photoId: "photo-1", name: "holiday.jpg", path: "/Camera/holiday.jpg" }}
+      photo={photo}
       selectedSlugs={["travel"]}
       labels={[]}
     />);
