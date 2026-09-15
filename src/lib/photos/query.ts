@@ -40,19 +40,17 @@ export function normalizePhotoQuery(
   const rawSearch = first(params.q)?.trim().slice(0, 120);
   const rawMime = first(params.mime)?.trim();
   const rawCategory = first(params.category)?.trim();
+  const takenFrom = parseDateBoundary(first(params.from));
+  const takenTo = parseDateBoundary(first(params.to), true);
 
   return {
     page,
     pageSize: 60,
     sort,
+    category: rawCategory && isCategorySlug(rawCategory) ? rawCategory : undefined,
     ...(rawSearch ? { search: rawSearch } : {}),
     ...(rawMime && rawMime !== "all" && rawMime.startsWith("image/") ? { mimeType: rawMime } : {}),
-    ...(rawCategory && isCategorySlug(rawCategory) ? { category: rawCategory } : {}),
-    ...(parseDateBoundary(first(params.from)) !== undefined
-      ? { takenFrom: parseDateBoundary(first(params.from)) }
-      : {}),
-    ...(parseDateBoundary(first(params.to), true) !== undefined
-      ? { takenTo: parseDateBoundary(first(params.to), true) }
-      : {}),
+    ...(takenFrom !== undefined ? { takenFrom } : {}),
+    ...(takenTo !== undefined ? { takenTo } : {}),
   };
 }
