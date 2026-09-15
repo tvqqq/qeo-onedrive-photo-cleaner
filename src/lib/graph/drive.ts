@@ -1,6 +1,23 @@
 import { GraphClient } from "./client";
 import type { DeltaPage, GraphDeltaResponse, GraphDriveItem } from "./types";
 
+const DELTA_SELECT = [
+  "id",
+  "name",
+  "size",
+  "eTag",
+  "createdDateTime",
+  "lastModifiedDateTime",
+  "file",
+  "folder",
+  "photo",
+  "image",
+  "parentReference",
+  "deleted",
+].join(",");
+
+const INITIAL_DELTA_PATH = `/me/drive/root/delta?$select=${DELTA_SELECT}`;
+
 function itemPath(itemId: string) {
   return `/me/drive/items/${encodeURIComponent(itemId)}`;
 }
@@ -9,7 +26,7 @@ export class DriveApi {
   constructor(private readonly graph: GraphClient) {}
 
   async getDeltaPage(url?: string): Promise<DeltaPage> {
-    const response = await this.graph.json<GraphDeltaResponse>(url ?? "/me/drive/root/delta");
+    const response = await this.graph.json<GraphDeltaResponse>(url ?? INITIAL_DELTA_PATH);
     return {
       items: response.value ?? [],
       nextLink: response["@odata.nextLink"],

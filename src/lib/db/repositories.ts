@@ -15,8 +15,20 @@ export interface PhotoRecord {
   sizeBytes: number;
   mimeType: string | null;
   quickxorHash: string | null;
+  sha256: string | null;
   width: number | null;
   height: number | null;
+  takenAt: number | null;
+  remoteCreatedAt: number | null;
+  remoteModifiedAt: number | null;
+  cameraMake: string | null;
+  cameraModel: string | null;
+  exposureNumerator: number | null;
+  exposureDenominator: number | null;
+  fNumber: number | null;
+  focalLength: number | null;
+  iso: number | null;
+  orientation: number | null;
   etag: string | null;
   deletedRemoteAt: number | null;
 }
@@ -29,8 +41,20 @@ type PhotoRow = {
   size_bytes: number;
   mime_type: string | null;
   quickxor_hash: string | null;
+  sha256: string | null;
   width: number | null;
   height: number | null;
+  taken_at: number | null;
+  remote_created_at: number | null;
+  remote_modified_at: number | null;
+  camera_make: string | null;
+  camera_model: string | null;
+  exposure_numerator: number | null;
+  exposure_denominator: number | null;
+  f_number: number | null;
+  focal_length: number | null;
+  iso: number | null;
+  orientation: number | null;
   etag: string | null;
   deleted_remote_at: number | null;
 };
@@ -44,28 +68,41 @@ function mapPhoto(row: PhotoRow): PhotoRecord {
     sizeBytes: row.size_bytes,
     mimeType: row.mime_type,
     quickxorHash: row.quickxor_hash,
+    sha256: row.sha256,
     width: row.width,
     height: row.height,
+    takenAt: row.taken_at,
+    remoteCreatedAt: row.remote_created_at,
+    remoteModifiedAt: row.remote_modified_at,
+    cameraMake: row.camera_make,
+    cameraModel: row.camera_model,
+    exposureNumerator: row.exposure_numerator,
+    exposureDenominator: row.exposure_denominator,
+    fNumber: row.f_number,
+    focalLength: row.focal_length,
+    iso: row.iso,
+    orientation: row.orientation,
     etag: row.etag,
     deletedRemoteAt: row.deleted_remote_at,
   };
 }
 
+const PHOTO_SELECT = `
+  id, drive_item_id, name, path, size_bytes, mime_type, quickxor_hash, sha256,
+  width, height, taken_at, remote_created_at, remote_modified_at,
+  camera_make, camera_model, exposure_numerator, exposure_denominator,
+  f_number, focal_length, iso, orientation, etag, deleted_remote_at
+`;
+
 export function findPhotoByDriveId(db: AppDatabase, driveItemId: string): PhotoRecord | null {
-  const row = db.prepare(`
-    SELECT id, drive_item_id, name, path, size_bytes, mime_type, quickxor_hash,
-           width, height, etag, deleted_remote_at
-    FROM photos WHERE drive_item_id = ?
-  `).get(driveItemId) as PhotoRow | undefined;
+  const row = db.prepare(`SELECT ${PHOTO_SELECT} FROM photos WHERE drive_item_id = ?`)
+    .get(driveItemId) as PhotoRow | undefined;
   return row ? mapPhoto(row) : null;
 }
 
 export function getPhotoById(db: AppDatabase, photoId: string): PhotoRecord | null {
-  const row = db.prepare(`
-    SELECT id, drive_item_id, name, path, size_bytes, mime_type, quickxor_hash,
-           width, height, etag, deleted_remote_at
-    FROM photos WHERE id = ?
-  `).get(photoId) as PhotoRow | undefined;
+  const row = db.prepare(`SELECT ${PHOTO_SELECT} FROM photos WHERE id = ?`)
+    .get(photoId) as PhotoRow | undefined;
   return row ? mapPhoto(row) : null;
 }
 
@@ -131,25 +168,56 @@ export function upsertPhoto(db: AppDatabase, item: GraphDriveItem, now = Date.no
   const id = existing?.id ?? item.id;
   const createdAt = existing?.created_at ?? now;
   const path = resolveDriveItemPath(db, item.id);
+  const width = item.image?.width ?? item.photo?.width ?? null;
+  const height = item.image?.height ?? item.photo?.height ?? null;
+  const photo = item.photo;
 
   db.prepare(`
     INSERT INTO photos(
       id, drive_item_id, name, path, size_bytes, mime_type, quickxor_hash,
-      width, height, taken_at, remote_created_at, remote_modified_at, etag,
+      width, height, taken_at, remote_created_at, remote_modified_at,
+      camera_make, camera_model, exposure_numerator, exposure_denominator,
+      f_number, focal_length, iso, orientation, etag,
       deleted_remote_at, created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?)
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?)
     ON CONFLICT(drive_item_id) DO UPDATE SET
       name = excluded.name, path = excluded.path, size_bytes = excluded.size_bytes,
       mime_type = excluded.mime_type, quickxor_hash = excluded.quickxor_hash,
       width = excluded.width, height = excluded.height, taken_at = excluded.taken_at,
       remote_created_at = excluded.remote_created_at, remote_modified_at = excluded.remote_modified_at,
+      camera_make = excluded.camera_make, camera_model = excluded.camera_model,
+      exposure_numerator = excluded.exposure_numerator,
+      exposure_denominator = excluded.exposure_denominator,
+      f_number = excluded.f_number, focal_length = excluded.focal_length,
+      iso = excluded.iso, orientation = excluded.orientation,
       sha256 = CASE WHEN photos.etag = excluded.etag THEN photos.sha256 ELSE NULL END,
       sha256_etag = CASE WHEN photos.etag = excluded.etag THEN photos.sha256_etag ELSE NULL END,
       etag = excluded.etag, deleted_remote_at = NULL, updated_at = excluded.updated_at
-  `).run(id, item.id, item.name ?? item.id, path, item.size ?? 0, item.file.mimeType ?? null,
-    item.file.hashes?.quickXorHash ?? null, item.photo?.width ?? null, item.photo?.height ?? null,
-    toMillis(item.photo?.takenDateTime), toMillis(item.createdDateTime),
-    toMillis(item.lastModifiedDateTime), item.eTag ?? null, createdAt, now);
+  `).run(
+    id,
+    item.id,
+    item.name ?? item.id,
+    path,
+    item.size ?? 0,
+    item.file.mimeType ?? null,
+    item.file.hashes?.quickXorHash ?? null,
+    width,
+    height,
+    toMillis(photo?.takenDateTime),
+    toMillis(item.createdDateTime),
+    toMillis(item.lastModifiedDateTime),
+    photo?.cameraMake ?? null,
+    photo?.cameraModel ?? null,
+    photo?.exposureNumerator ?? null,
+    photo?.exposureDenominator ?? null,
+    photo?.fNumber ?? null,
+    photo?.focalLength ?? null,
+    photo?.iso ?? null,
+    photo?.orientation ?? null,
+    item.eTag ?? null,
+    createdAt,
+    now,
+  );
 }
 
 export function markDriveItemDeleted(db: AppDatabase, driveItemId: string, now = Date.now()): void {
