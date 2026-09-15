@@ -100,6 +100,6 @@ describe("PhotoDetailDialog", () => {
     expect(screen.queryByText("Uploaded/created by")).toBeNull();
     expect(screen.queryByText("Last modified by")).toBeNull();
     expect(screen.getByText("Apple iPhone 16 Pro")).toBeTruthy();
-    expect(screen.getByText("IMG_0001.jpg")).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "IMG_0001.jpg" })).toBeTruthy();
   });
 });
