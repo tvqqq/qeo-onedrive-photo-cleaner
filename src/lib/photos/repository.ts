@@ -1,4 +1,5 @@
 import type { AppDatabase } from "@/lib/db/client";
+import { listActiveTagsForPhotos } from "@/lib/tags/repository";
 import type { PhotoMetadata, PhotoPageResult, PhotoQuery, PhotoSort } from "./types";
 
 const ORDER_BY: Record<PhotoSort, string> = {
@@ -98,9 +99,27 @@ function buildWhere(query: PhotoQuery): { sql: string; args: Array<string | numb
       p.name LIKE ? ESCAPE '\\' COLLATE NOCASE OR
       p.path LIKE ? ESCAPE '\\' COLLATE NOCASE OR
       p.camera_make LIKE ? ESCAPE '\\' COLLATE NOCASE OR
-      p.camera_model LIKE ? ESCAPE '\\' COLLATE NOCASE
+      p.camera_model LIKE ? ESCAPE '\\' COLLATE NOCASE OR
+      p.created_by_user_name LIKE ? ESCAPE '\\' COLLATE NOCASE OR
+      p.created_by_device_name LIKE ? ESCAPE '\\' COLLATE NOCASE OR
+      p.created_by_application_name LIKE ? ESCAPE '\\' COLLATE NOCASE OR
+      p.modified_by_user_name LIKE ? ESCAPE '\\' COLLATE NOCASE OR
+      p.modified_by_device_name LIKE ? ESCAPE '\\' COLLATE NOCASE OR
+      p.modified_by_application_name LIKE ? ESCAPE '\\' COLLATE NOCASE
     )`);
-    args.push(like, like, like, like);
+    args.push(like, like, like, like, like, like, like, like, like, like);
+  }
+
+  for (const slug of query.tagSlugs ?? []) {
+    clauses.push(`EXISTS (
+      SELECT 1
+      FROM photo_tags pt
+      JOIN tags t ON t.id = pt.tag_id
+      WHERE pt.photo_id = p.id
+        AND pt.state = 'active'
+        AND t.slug = ?
+    )`);
+    args.push(slug);
   }
 
   if (query.mimeType) {
@@ -156,8 +175,12 @@ export function listPhotos(db: AppDatabase, query: PhotoQuery): PhotoPageResult 
     LIMIT ? OFFSET ?
   `).all(...args, query.pageSize, offset) as PhotoRow[];
 
+  const items = rows.map(mapPhoto);
+  const tags = listActiveTagsForPhotos(db, items.map((item) => item.photoId));
+  for (const item of items) item.tags = tags.get(item.photoId) ?? [];
+
   return {
-    items: rows.map(mapPhoto),
+    items,
     page: query.page,
     pageSize: query.pageSize,
     total: count.count,
