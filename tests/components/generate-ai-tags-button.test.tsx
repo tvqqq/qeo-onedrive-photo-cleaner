@@ -41,6 +41,6 @@ describe("GenerateAiTagsButton", () => {
     fireEvent.click(screen.getByRole("button", { name: /generate ai tags/i }));
 
     expect(await screen.findByText("ML queue unavailable")).toBeTruthy();
-    expect(screen.getByRole("button", { name: /generate ai tags/i })).not.toBeDisabled();
+    expect((screen.getByRole("button", { name: /generate ai tags/i }) as HTMLButtonElement).disabled).toBe(false);
   });
 });
