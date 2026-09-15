@@ -26,6 +26,19 @@ describe("DeletePhotoControl", () => {
     expect(screen.getByRole("button", { name: /confirm delete/i })).toBeTruthy();
   });
 
+  it("cancels confirmation without sending a delete request", () => {
+    render(<DeletePhotoControl photoId="photo-1" filename="IMG_0001.jpg" onDeleted={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /delete photo/i }));
+    expect(screen.getByRole("button", { name: /confirm delete/i })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: /cancel/i }));
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(screen.queryByRole("button", { name: /confirm delete/i })).toBeNull();
+    expect(screen.getByRole("button", { name: /delete photo/i })).toBeTruthy();
+  });
+
   it("sends only the local photoId and removes the item after confirmed success", async () => {
     fetchMock.mockResolvedValue(new Response(JSON.stringify({ deleted: true }), {
       status: 200,
