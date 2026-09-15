@@ -72,6 +72,6 @@ describe("DuplicateGroupCard", () => {
       groupId: "exact-1",
       selectedPhotoIds: ["copy"],
     });
-    expect(await screen.findByRole("status")).toHaveTextContent(/OneDrive Recycle Bin/i);
+    expect((await screen.findByRole("status")).textContent).toMatch(/OneDrive Recycle Bin/i);
   });
 });
