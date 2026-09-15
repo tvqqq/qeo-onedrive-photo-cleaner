@@ -1,3 +1,5 @@
+import type { PhotoTag } from "@/lib/tags/types";
+
 export interface PhotoMetadata {
   photoId: string;
   driveItemId: string;
@@ -31,6 +33,7 @@ export interface PhotoMetadata {
   etag: string | null;
   quickxorHash: string | null;
   sha256: string | null;
+  tags?: PhotoTag[];
 }
 
 export type PhotoSort =
@@ -48,6 +51,7 @@ export interface PhotoQuery {
   pageSize: number;
   sort: PhotoSort;
   search?: string;
+  tagSlugs?: string[];
   mimeType?: string;
   category?: string;
   takenFrom?: number;
