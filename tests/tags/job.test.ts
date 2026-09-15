@@ -5,10 +5,12 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { AppDatabase } from "@/lib/db/client";
 import { createDatabase } from "@/lib/db/client";
 import { migrateDatabase } from "@/lib/db/migrate";
+import { env } from "@/lib/env";
 import { GraphRequestError } from "@/lib/graph/client";
 import { enqueueJob, getJob } from "@/lib/jobs/repository";
-import { listActiveTagsForPhoto } from "@/lib/tags/repository";
+import { listActiveTagsForPhoto, replaceAiTagsForPhoto } from "@/lib/tags/repository";
 import { runTagPhotosJob, selectAiTagSuggestions } from "@/lib/tags/service";
+import { TAG_TAXONOMY_VERSION } from "@/lib/tags/vocabulary";
 
 const open: AppDatabase[] = [];
 afterEach(() => { while (open.length) open.pop()?.close(); });
@@ -50,6 +52,30 @@ describe("AI tag worker", () => {
     expect(selected.map((item) => item.slug)).toEqual([
       "screenshot", "document", "receipt", "chart", "phone",
     ]);
+  });
+
+  it("classifies only photos that need the current model, taxonomy, and ETag", async () => {
+    const { db, dataDir } = setup();
+    replaceAiTagsForPhoto(db, "one", [], {
+      taggedEtag: "etag-one",
+      modelId: env.CLIP_MODEL_ID,
+      taxonomyVersion: TAG_TAXONOMY_VERSION,
+      taggedAt: Date.now(),
+    });
+    const drive = { getThumbnailContent: vi.fn().mockResolvedValue(imageBytes()) };
+    const classifier = {
+      initialize: vi.fn().mockResolvedValue(undefined),
+      classify: vi.fn().mockResolvedValue([{ label: "a document", score: 0.5 }]),
+    };
+    const jobId = enqueueJob(db, "tag-photos", {});
+
+    await runTagPhotosJob({ db, dataDir, drive, classifier }, jobId);
+
+    expect(classifier.initialize).toHaveBeenCalledTimes(1);
+    expect(drive.getThumbnailContent).toHaveBeenCalledTimes(1);
+    expect(classifier.classify).toHaveBeenCalledTimes(1);
+    expect(listActiveTagsForPhoto(db, "two").map((tag) => tag.slug)).toEqual(["document"]);
+    expect(getJob(db, jobId)?.progressTotal).toBe(1);
   });
 
   it("initializes once, writes successful tags, and leaves failed images retryable", async () => {
@@ -100,6 +126,29 @@ describe("AI tag worker", () => {
     expect(deleted.deleted_remote_at).not.toBeNull();
     expect(listActiveTagsForPhoto(db, "two").map((tag) => tag.slug)).toEqual(["document"]);
     expect(getJob(db, jobId)?.progressCurrent).toBe(2);
+  });
+
+  it("rethrows non-404 Graph failures instead of treating them as per-image errors", async () => {
+    const { db, dataDir } = setup();
+    const classifier = {
+      initialize: vi.fn().mockResolvedValue(undefined),
+      classify: vi.fn(),
+    };
+    const jobId = enqueueJob(db, "tag-photos", {});
+
+    await expect(runTagPhotosJob({
+      db,
+      dataDir,
+      drive: {
+        getThumbnailContent: vi.fn().mockRejectedValue(
+          new GraphRequestError(503, "serviceUnavailable", "temporary outage"),
+        ),
+      },
+      classifier,
+    }, jobId)).rejects.toThrow("temporary outage");
+
+    expect(classifier.classify).not.toHaveBeenCalled();
+    expect(getJob(db, jobId)?.progressCurrent).toBe(0);
   });
 
   it("fails immediately when classifier initialization fails", async () => {
