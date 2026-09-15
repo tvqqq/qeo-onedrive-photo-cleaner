@@ -2,7 +2,9 @@ import { createHash } from "node:crypto";
 import sharp from "sharp";
 import type { AppDatabase } from "@/lib/db/client";
 import { cosineSimilarity } from "@/lib/classification/clip";
+import { markDriveItemDeleted } from "@/lib/db/repositories";
 import { env } from "@/lib/env";
+import { GraphRequestError } from "@/lib/graph/client";
 import { updateJobProgress } from "@/lib/jobs/repository";
 import { getThumbnailPath, type ThumbnailDriveApi } from "@/lib/thumbnails/cache";
 
@@ -287,7 +289,19 @@ export async function runSimilarPhotoJob(
 
   let processed = 0;
   for (const photo of photos) {
-    await ensurePhotoFeatures(context, photo);
+    try {
+      await ensurePhotoFeatures(context, photo);
+    } catch (error) {
+      if (
+        error instanceof GraphRequestError &&
+        error.status === 404 &&
+        error.code === "itemNotFound"
+      ) {
+        markDriveItemDeleted(context.db, photo.drive_item_id);
+      } else {
+        throw error;
+      }
+    }
     processed += 1;
     updateJobProgress(context.db, jobId, processed, photos.length);
   }

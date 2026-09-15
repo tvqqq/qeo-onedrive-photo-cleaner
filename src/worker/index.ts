@@ -1,5 +1,6 @@
 import { openAppDatabase } from "@/lib/db/client";
 import { migrateDatabase } from "@/lib/db/migrate";
+import { env } from "@/lib/env";
 import {
   claimNextJob,
   failJob,
@@ -16,7 +17,7 @@ function sleep(milliseconds: number) {
 async function main() {
   const db = openAppDatabase();
   migrateDatabase(db);
-  requeueInterruptedJobs(db);
+  requeueInterruptedJobs(db, env.WORKER_LANE);
 
   let running = true;
   process.once("SIGTERM", () => { running = false; });
@@ -24,7 +25,7 @@ async function main() {
 
   try {
     while (running) {
-      const job = claimNextJob(db);
+      const job = claimNextJob(db, env.WORKER_LANE);
       if (!job) {
         await sleep(1000);
         continue;

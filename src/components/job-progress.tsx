@@ -15,6 +15,13 @@ type Job = {
   error: string | null;
 };
 
+const STATUS_LABEL: Record<Job["status"], string> = {
+  queued: "Waiting for worker",
+  running: "Running",
+  completed: "Completed",
+  failed: "Failed",
+};
+
 function statusTone(status: Job["status"]): "neutral" | "info" | "success" | "danger" {
   if (status === "running") return "info";
   if (status === "completed") return "success";
@@ -107,7 +114,7 @@ export function JobProgress() {
           <div>
             <p className="text-xs font-medium uppercase tracking-wide text-zinc-500">Status</p>
             <div className="mt-2">
-              <Badge tone={statusTone(job.status)}>{job.status}</Badge>
+              <Badge tone={statusTone(job.status)}>{STATUS_LABEL[job.status]}</Badge>
             </div>
           </div>
           <div>

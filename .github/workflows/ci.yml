@@ -38,13 +38,15 @@ jobs:
         run: docker build -t qeo-onedrive-photo-cleaner:ci .
       - name: Docker smoke
         run: |
+          docker volume create qeo-photo-cleaner-ci-data >/dev/null
           docker run -d --name qeo-photo-cleaner-ci \
             -p 127.0.0.1:3000:3000 \
             -e DEMO_MODE=1 \
             -e APP_BASE_URL=http://localhost:3000 \
             -e DATA_DIR=/data \
+            -v qeo-photo-cleaner-ci-data:/data \
             qeo-onedrive-photo-cleaner:ci
-          trap 'docker rm -f qeo-photo-cleaner-ci qeo-photo-cleaner-worker-ci >/dev/null 2>&1 || true' EXIT
+          trap 'docker rm -f qeo-photo-cleaner-ci qeo-photo-cleaner-worker-core-ci qeo-photo-cleaner-worker-ml-ci >/dev/null 2>&1 || true; docker volume rm qeo-photo-cleaner-ci-data >/dev/null 2>&1 || true' EXIT
 
           ready=0
           for attempt in $(seq 1 30); do
@@ -69,18 +71,30 @@ jobs:
           curl --fail --silent --show-error http://127.0.0.1:3000/api/health
           curl --fail --silent --show-error http://127.0.0.1:3000/ >/dev/null
 
-          docker run -d --name qeo-photo-cleaner-worker-ci \
+          docker run -d --name qeo-photo-cleaner-worker-core-ci \
             -e DEMO_MODE=1 \
             -e APP_BASE_URL=http://localhost:3000 \
             -e DATA_DIR=/data \
+            -e WORKER_LANE=core \
+            -v qeo-photo-cleaner-ci-data:/data \
+            qeo-onedrive-photo-cleaner:ci npm run worker
+
+          docker run -d --name qeo-photo-cleaner-worker-ml-ci \
+            -e DEMO_MODE=1 \
+            -e APP_BASE_URL=http://localhost:3000 \
+            -e DATA_DIR=/data \
+            -e WORKER_LANE=ml \
+            -v qeo-photo-cleaner-ci-data:/data \
             qeo-onedrive-photo-cleaner:ci npm run worker
 
           sleep 2
-          if [ "$(docker inspect -f '{{.State.Running}}' qeo-photo-cleaner-worker-ci 2>/dev/null || echo false)" != "true" ]; then
-            echo "Worker exited during startup"
-            docker logs qeo-photo-cleaner-worker-ci || true
-            exit 1
-          fi
+          for worker in qeo-photo-cleaner-worker-core-ci qeo-photo-cleaner-worker-ml-ci; do
+            if [ "$(docker inspect -f '{{.State.Running}}' "$worker" 2>/dev/null || echo false)" != "true" ]; then
+              echo "$worker exited during startup"
+              docker logs "$worker" || true
+              exit 1
+            fi
+          done
 
   secrets:
     runs-on: ubuntu-latest

@@ -13,6 +13,35 @@ beforeEach(() => {
 });
 
 describe("JobProgress", () => {
+  it("labels queued scans as waiting for a worker and running scans clearly", async () => {
+    fetchMock
+      .mockResolvedValueOnce(new Response(JSON.stringify({ jobId: "job-waiting" }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        id: "job-waiting",
+        status: "queued",
+        progressCurrent: 0,
+        progressTotal: null,
+        error: null,
+      }), { status: 200, headers: { "content-type": "application/json" } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        id: "job-waiting",
+        status: "running",
+        progressCurrent: 3,
+        progressTotal: null,
+        error: null,
+      }), { status: 200, headers: { "content-type": "application/json" } }));
+
+    render(<JobProgress />);
+    fireEvent.click(screen.getByRole("button", { name: "Full scan" }));
+
+    expect(await screen.findByText("Waiting for worker")).toBeTruthy();
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3), { timeout: 2000 });
+    expect(screen.getByText("Running")).toBeTruthy();
+  });
+
   it("tracks full scan mode and never invents a percentage when total is unknown", async () => {
     fetchMock
       .mockResolvedValueOnce(new Response(JSON.stringify({ jobId: "job-1" }), {
@@ -42,12 +71,12 @@ describe("JobProgress", () => {
     expect(JSON.parse(String(postInit.body))).toEqual({ mode: "full" });
     expect(screen.getByText("Mode")).toBeTruthy();
     expect(screen.getAllByText("Full scan")).toHaveLength(2);
-    expect(screen.getByText("running")).toBeTruthy();
+    expect(screen.getByText("Running")).toBeTruthy();
     expect(screen.getByText(/Processed 12/)).toBeTruthy();
     expect(document.body.textContent).not.toMatch(/\d+%/);
 
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3), { timeout: 2000 });
-    expect(screen.getByText("completed")).toBeTruthy();
+    expect(screen.getByText("Completed")).toBeTruthy();
     expect(screen.getByText(/Processed 25/)).toBeTruthy();
   });
 

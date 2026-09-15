@@ -24,6 +24,21 @@ services:
       - .env.local
     environment:
       DATA_DIR: /data
+      WORKER_LANE: core
+    volumes:
+      - qeo-photo-data:/data
+    depends_on:
+      web:
+        condition: service_healthy
+
+  worker-ml:
+    build: .
+    command: ["npm", "run", "worker"]
+    env_file:
+      - .env.local
+    environment:
+      DATA_DIR: /data
+      WORKER_LANE: ml
     volumes:
       - qeo-photo-data:/data
     depends_on:

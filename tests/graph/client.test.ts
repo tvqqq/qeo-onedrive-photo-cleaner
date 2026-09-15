@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { GraphClient } from "@/lib/graph/client";
+import { GraphClient, GraphRequestError } from "@/lib/graph/client";
 
 describe("GraphClient", () => {
   it("retries 429 responses and honors Retry-After", async () => {
@@ -15,6 +15,20 @@ describe("GraphClient", () => {
     expect(result.value).toEqual([]);
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(sleep).toHaveBeenCalledWith(1000);
+  });
+
+  it("exposes Graph status and error code on non-retryable failures", async () => {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(Response.json({
+      error: { code: "itemNotFound", message: "Item not found" },
+    }, { status: 404 }));
+    const client = new GraphClient(async () => "access-token", { fetch: fetchMock, sleep: async () => undefined });
+
+    await expect(client.json("/me/drive/items/missing")).rejects.toMatchObject({
+      name: "GraphRequestError",
+      status: 404,
+      code: "itemNotFound",
+    } satisfies Partial<GraphRequestError>);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it("never retries ordinary 4xx responses", async () => {

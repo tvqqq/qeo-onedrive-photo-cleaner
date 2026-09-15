@@ -63,13 +63,19 @@ The web app is intentionally bound to localhost only:
 
 `127.0.0.1:3000:3000`
 
-Open `http://localhost:3000`, then use **Settings → Connect OneDrive**. Docker Compose runs separate `web` and `worker` services; both share the same persistent `/data` volume.
+Open `http://localhost:3000`, then use **Settings → Connect OneDrive**. Docker Compose runs three services against the same persistent `/data` volume:
+
+- `web` — Next.js UI/API.
+- `worker` — core lane for `scan` and `verify-exact` jobs.
+- `worker-ml` — ML lane for `classify` and `find-similar` jobs.
+
+Separating the lanes means a long local CLIP job does not prevent a new scan from starting. Each lane still runs one job at a time and both use the same restart-safe SQLite queue.
 
 Useful commands:
 
 ```bash
 docker compose ps
-docker compose logs -f web worker
+docker compose logs -f web worker worker-ml
 docker compose down
 ```
 
@@ -85,6 +91,19 @@ docker compose up -d --build
 ```
 
 After the upgraded services are healthy, run **one Full Scan**. This backfills the new Graph camera/exposure metadata fields for already indexed photos. After that, use Incremental Scan for normal day-to-day updates.
+
+## Upgrade from v0.2 to v0.2.1
+
+v0.2.1 splits background execution into core and ML worker lanes. It does not require a database migration and preserves existing queued/running job records in `/data`.
+
+```bash
+git pull
+docker compose down
+docker compose up -d --build
+docker compose ps
+```
+
+After startup, `docker compose ps` should show `web`, `worker`, and `worker-ml`. Do **not** use `docker compose down -v`; the existing SQLite queue, auth state, metadata, review state, and caches should remain in the persistent volume.
 
 ## Tailnet-only access with Tailscale Serve
 
@@ -135,10 +154,16 @@ npm ci
 npm run dev
 ```
 
-Run the worker separately:
+Run the core worker separately:
 
 ```bash
-npm run worker
+WORKER_LANE=core npm run worker
+```
+
+Run the ML worker in another terminal when testing classification/similarity jobs:
+
+```bash
+WORKER_LANE=ml npm run worker
 ```
 
 Validation:
