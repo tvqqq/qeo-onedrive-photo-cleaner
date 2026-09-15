@@ -8,7 +8,7 @@ import {
 } from "@/lib/db/repositories";
 import type { DeltaPage, GraphDriveItem } from "@/lib/graph/types";
 import {
-  enqueueJobIfNotActive,
+  enqueueJobIfIdle,
   getJob,
   updateJobPayload,
   updateJobProgress,
@@ -78,7 +78,7 @@ export async function runScanJob(
     }
 
     if (!page.nextLink) {
-      enqueueJobIfNotActive(context.db, "tag-photos", { source: "scan" });
+      enqueueJobIfIdle(context.db, "tag-photos", {});
       return;
     }
     nextLink = page.nextLink;
