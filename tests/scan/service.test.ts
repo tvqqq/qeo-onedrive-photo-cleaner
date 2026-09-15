@@ -19,11 +19,36 @@ function item(value: Partial<GraphDriveItem> & Pick<GraphDriveItem, "id">): Grap
   return { name: `${value.id}.jpg`, ...value } as GraphDriveItem;
 }
 
+function queuedTagJobCount(db: ReturnType<typeof database>): number {
+  const row = db.prepare(`
+    SELECT COUNT(*) AS count
+    FROM jobs
+    WHERE type = 'tag-photos' AND status = 'queued'
+  `).get() as { count: number };
+  return row.count;
+}
+
 describe("scan service", () => {
   it("recognizes image files but not deleted or non-image items", () => {
     expect(isPhotoCandidate(item({ id: "a", file: { mimeType: "image/jpeg" } }))).toBe(true);
     expect(isPhotoCandidate(item({ id: "b", file: { mimeType: "application/pdf" } }))).toBe(false);
     expect(isPhotoCandidate(item({ id: "c", deleted: { state: "deleted" }, file: { mimeType: "image/jpeg" } }))).toBe(false);
+  });
+
+  it("queues one AI tag follow-up only after a successful terminal page", async () => {
+    const db = database();
+    const jobId = enqueueJob(db, "scan", { mode: "incremental" });
+    claimNextJob(db);
+    const drive = {
+      getDeltaPage: vi.fn().mockResolvedValue({
+        items: [item({ id: "photo-1", file: { mimeType: "image/jpeg" } })],
+        deltaLink: "delta-complete",
+      } satisfies DeltaPage),
+    };
+
+    await runScanJob({ db, drive }, jobId, "incremental");
+
+    expect(queuedTagJobCount(db)).toBe(1);
   });
 
   it("keeps the last delta occurrence and reconciles remote deletions", async () => {
@@ -197,5 +222,6 @@ describe("scan service", () => {
 
     expect(findPhotoByDriveId(db, "page-1")).not.toBeNull();
     expect((getJob(db, jobId)?.payload as { nextLink?: string }).nextLink).toBe(nextLink);
+    expect(queuedTagJobCount(db)).toBe(0);
   });
 });
