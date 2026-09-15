@@ -18,6 +18,16 @@ export interface PhotoMetadata {
   focalLength: number | null;
   iso: number | null;
   orientation: number | null;
+  createdByUserName: string | null;
+  createdByDeviceName: string | null;
+  createdByDeviceId: string | null;
+  createdByApplicationName: string | null;
+  createdByApplicationId: string | null;
+  modifiedByUserName: string | null;
+  modifiedByDeviceName: string | null;
+  modifiedByDeviceId: string | null;
+  modifiedByApplicationName: string | null;
+  modifiedByApplicationId: string | null;
   etag: string | null;
   quickxorHash: string | null;
   sha256: string | null;

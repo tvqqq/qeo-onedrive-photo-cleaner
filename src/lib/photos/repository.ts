@@ -32,6 +32,16 @@ type PhotoRow = {
   focal_length: number | null;
   iso: number | null;
   orientation: number | null;
+  created_by_user_name: string | null;
+  created_by_device_name: string | null;
+  created_by_device_id: string | null;
+  created_by_application_name: string | null;
+  created_by_application_id: string | null;
+  modified_by_user_name: string | null;
+  modified_by_device_name: string | null;
+  modified_by_device_id: string | null;
+  modified_by_application_name: string | null;
+  modified_by_application_id: string | null;
   etag: string | null;
   quickxor_hash: string | null;
   sha256: string | null;
@@ -58,6 +68,16 @@ function mapPhoto(row: PhotoRow): PhotoMetadata {
     focalLength: row.focal_length,
     iso: row.iso,
     orientation: row.orientation,
+    createdByUserName: row.created_by_user_name,
+    createdByDeviceName: row.created_by_device_name,
+    createdByDeviceId: row.created_by_device_id,
+    createdByApplicationName: row.created_by_application_name,
+    createdByApplicationId: row.created_by_application_id,
+    modifiedByUserName: row.modified_by_user_name,
+    modifiedByDeviceName: row.modified_by_device_name,
+    modifiedByDeviceId: row.modified_by_device_id,
+    modifiedByApplicationName: row.modified_by_application_name,
+    modifiedByApplicationId: row.modified_by_application_id,
     etag: row.etag,
     quickxorHash: row.quickxor_hash,
     sha256: row.sha256,
@@ -124,8 +144,12 @@ export function listPhotos(db: AppDatabase, query: PhotoQuery): PhotoPageResult 
       p.id, p.drive_item_id, p.name, p.path, p.size_bytes, p.mime_type,
       p.width, p.height, p.taken_at, p.remote_created_at, p.remote_modified_at,
       p.camera_make, p.camera_model, p.exposure_numerator, p.exposure_denominator,
-      p.f_number, p.focal_length, p.iso, p.orientation, p.etag,
-      p.quickxor_hash, p.sha256
+      p.f_number, p.focal_length, p.iso, p.orientation,
+      p.created_by_user_name, p.created_by_device_name, p.created_by_device_id,
+      p.created_by_application_name, p.created_by_application_id,
+      p.modified_by_user_name, p.modified_by_device_name, p.modified_by_device_id,
+      p.modified_by_application_name, p.modified_by_application_id,
+      p.etag, p.quickxor_hash, p.sha256
     FROM photos p
     WHERE ${whereSql}
     ORDER BY ${ORDER_BY[query.sort]}
