@@ -43,6 +43,7 @@ function photo(photoId: string, name: string): PhotoMetadata {
     etag: `etag-${photoId}`,
     quickxorHash: "qxor",
     sha256: "same-sha",
+    tags: [],
   };
 }
 
