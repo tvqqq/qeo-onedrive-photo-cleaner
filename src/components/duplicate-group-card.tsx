@@ -108,7 +108,9 @@ export function DuplicateGroupCard({
           >
             {busy ? "Moving…" : `Approve ${selected.size} deletion${selected.size === 1 ? "" : "s"}`}
           </Button>
-          <span className="text-xs text-zinc-500">{selected.size} reviewed copy{selected.size === 1 ? "" : "ies"} selected</span>
+          <span className="text-xs text-zinc-500">
+            {selected.size} reviewed {selected.size === 1 ? "copy" : "copies"} selected
+          </span>
         </div>
       </div>
 
