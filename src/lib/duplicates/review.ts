@@ -51,6 +51,16 @@ type ReviewRow = {
   focal_length: number | null;
   iso: number | null;
   orientation: number | null;
+  created_by_user_name: string | null;
+  created_by_device_name: string | null;
+  created_by_device_id: string | null;
+  created_by_application_name: string | null;
+  created_by_application_id: string | null;
+  modified_by_user_name: string | null;
+  modified_by_device_name: string | null;
+  modified_by_device_id: string | null;
+  modified_by_application_name: string | null;
+  modified_by_application_id: string | null;
   etag: string | null;
   quickxor_hash: string | null;
   sha256: string | null;
@@ -77,6 +87,16 @@ function mapPhoto(row: ReviewRow): PhotoMetadata {
     focalLength: row.focal_length,
     iso: row.iso,
     orientation: row.orientation,
+    createdByUserName: row.created_by_user_name,
+    createdByDeviceName: row.created_by_device_name,
+    createdByDeviceId: row.created_by_device_id,
+    createdByApplicationName: row.created_by_application_name,
+    createdByApplicationId: row.created_by_application_id,
+    modifiedByUserName: row.modified_by_user_name,
+    modifiedByDeviceName: row.modified_by_device_name,
+    modifiedByDeviceId: row.modified_by_device_id,
+    modifiedByApplicationName: row.modified_by_application_name,
+    modifiedByApplicationId: row.modified_by_application_id,
     etag: row.etag,
     quickxorHash: row.quickxor_hash,
     sha256: row.sha256,
@@ -111,6 +131,16 @@ export function listPendingDuplicateReviewGroups(db: AppDatabase): DuplicateRevi
       p.focal_length,
       p.iso,
       p.orientation,
+      p.created_by_user_name,
+      p.created_by_device_name,
+      p.created_by_device_id,
+      p.created_by_application_name,
+      p.created_by_application_id,
+      p.modified_by_user_name,
+      p.modified_by_device_name,
+      p.modified_by_device_id,
+      p.modified_by_application_name,
+      p.modified_by_application_id,
       p.etag,
       p.quickxor_hash,
       p.sha256
