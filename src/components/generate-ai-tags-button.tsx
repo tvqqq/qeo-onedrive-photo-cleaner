@@ -18,7 +18,7 @@ export function GenerateAiTagsButton() {
       });
       const body = await response.json() as { jobId?: string; error?: string };
       if (!response.ok || !body.jobId) throw new Error(body.error ?? "Unable to queue AI tags");
-      setMessage("AI tagging queued.");
+      setMessage(`AI tagging queued: ${body.jobId}`);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Unable to queue AI tags");
     } finally {
