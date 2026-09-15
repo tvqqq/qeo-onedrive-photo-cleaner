@@ -34,9 +34,17 @@ export class ZeroShotClassifier {
 
   constructor(private readonly factory: ZeroShotFactory = createDefaultClassifier) {}
 
-  async classify(path: string, candidateLabels: string[]): Promise<ZeroShotResult[]> {
+  private getClassifier(): Promise<ZeroShotFn> {
     this.classifierPromise ??= this.factory();
-    const classifier = await this.classifierPromise;
+    return this.classifierPromise;
+  }
+
+  async initialize(): Promise<void> {
+    await this.getClassifier();
+  }
+
+  async classify(path: string, candidateLabels: string[]): Promise<ZeroShotResult[]> {
+    const classifier = await this.getClassifier();
     return classifier(path, candidateLabels);
   }
 }
