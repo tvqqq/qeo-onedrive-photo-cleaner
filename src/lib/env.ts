@@ -6,6 +6,7 @@ const schema = z.object({
   DEMO_MODE: z.enum(["0", "1"]).default("0").transform((value) => value === "1"),
   CLIP_MODEL_ID: z.string().min(1).default("Xenova/clip-vit-base-patch32"),
   MICROSOFT_APP_ID: z.string().default(""),
+  WORKER_LANE: z.enum(["core", "ml"]).default("core"),
 });
 
 export type AppEnv = z.infer<typeof schema>;
