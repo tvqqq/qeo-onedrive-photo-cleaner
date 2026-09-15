@@ -35,6 +35,16 @@ type ReviewQueueRow = {
   focal_length: number | null;
   iso: number | null;
   orientation: number | null;
+  created_by_user_name: string | null;
+  created_by_device_name: string | null;
+  created_by_device_id: string | null;
+  created_by_application_name: string | null;
+  created_by_application_id: string | null;
+  modified_by_user_name: string | null;
+  modified_by_device_name: string | null;
+  modified_by_device_id: string | null;
+  modified_by_application_name: string | null;
+  modified_by_application_id: string | null;
   etag: string | null;
   quickxor_hash: string | null;
   sha256: string | null;
@@ -67,6 +77,16 @@ function mapPhoto(row: ReviewQueueRow): PhotoMetadata {
     focalLength: row.focal_length,
     iso: row.iso,
     orientation: row.orientation,
+    createdByUserName: row.created_by_user_name,
+    createdByDeviceName: row.created_by_device_name,
+    createdByDeviceId: row.created_by_device_id,
+    createdByApplicationName: row.created_by_application_name,
+    createdByApplicationId: row.created_by_application_id,
+    modifiedByUserName: row.modified_by_user_name,
+    modifiedByDeviceName: row.modified_by_device_name,
+    modifiedByDeviceId: row.modified_by_device_id,
+    modifiedByApplicationName: row.modified_by_application_name,
+    modifiedByApplicationId: row.modified_by_application_id,
     etag: row.etag,
     quickxorHash: row.quickxor_hash,
     sha256: row.sha256,
@@ -100,6 +120,16 @@ export function listCategoryReviewQueue(
         focal_length,
         iso,
         orientation,
+        created_by_user_name,
+        created_by_device_name,
+        created_by_device_id,
+        created_by_application_name,
+        created_by_application_id,
+        modified_by_user_name,
+        modified_by_device_name,
+        modified_by_device_id,
+        modified_by_application_name,
+        modified_by_application_id,
         etag,
         quickxor_hash,
         sha256,
@@ -130,6 +160,16 @@ export function listCategoryReviewQueue(
       q.focal_length,
       q.iso,
       q.orientation,
+      q.created_by_user_name,
+      q.created_by_device_name,
+      q.created_by_device_id,
+      q.created_by_application_name,
+      q.created_by_application_id,
+      q.modified_by_user_name,
+      q.modified_by_device_name,
+      q.modified_by_device_id,
+      q.modified_by_application_name,
+      q.modified_by_application_id,
       q.etag,
       q.quickxor_hash,
       q.sha256,
