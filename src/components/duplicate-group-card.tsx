@@ -1,23 +1,31 @@
 "use client";
 
 import { useState } from "react";
-import { PhotoThumb } from "./photo-thumb";
+import { PhotoCard } from "@/components/photo-card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import type { PhotoMetadata } from "@/lib/photos/types";
 
 export interface DuplicateCardItem {
-  photoId: string;
-  name: string;
-  path: string;
-  sizeBytes: number;
+  photo: PhotoMetadata;
   recommendedKeep: boolean;
   selectedForDelete: boolean;
 }
 
-function formatBytes(bytes: number) {
-  return `${(bytes / 1024 / 1024).toFixed(2)} MB`;
-}
-
-export function DuplicateGroupCard({ groupId, items }: { groupId: string; items: DuplicateCardItem[] }) {
-  const [selected, setSelected] = useState(() => new Set(items.filter((item) => item.selectedForDelete).map((item) => item.photoId)));
+export function DuplicateGroupCard({
+  groupId,
+  verifiedSha256,
+  items,
+}: {
+  groupId: string;
+  verifiedSha256: string;
+  items: DuplicateCardItem[];
+}) {
+  const [selected, setSelected] = useState(() => new Set(
+    items
+      .filter((item) => !item.recommendedKeep && item.selectedForDelete)
+      .map((item) => item.photo.photoId),
+  ));
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -42,43 +50,69 @@ export function DuplicateGroupCard({ groupId, items }: { groupId: string; items:
   }
 
   return (
-    <article className="space-y-4 rounded-xl border p-5">
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+    <article className="space-y-5 rounded-2xl border border-zinc-800 bg-zinc-950/60 p-5">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge tone="success">Verified exact</Badge>
+            <span className="text-xs font-medium uppercase tracking-wide text-zinc-500">{items.length} files</span>
+          </div>
+          <p className="mt-3 break-all text-xs text-zinc-500">
+            Verified SHA-256: <span className="font-mono text-zinc-300">{verifiedSha256}</span>
+          </p>
+        </div>
+        <p className="max-w-md text-sm leading-6 text-zinc-400">
+          Only non-keeper files can be selected. Approval moves reviewed copies to the OneDrive Recycle Bin.
+        </p>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {items.map((item) => (
-          <label key={item.photoId} className="space-y-2 rounded-lg border p-3">
-            <PhotoThumb photoId={item.photoId} alt={item.name} className="w-full" />
-            <div className="text-sm">
-              <p className="font-medium">{item.name}</p>
-              <p className="truncate text-gray-500">{item.path}</p>
-              <p className="text-gray-500">{formatBytes(item.sizeBytes)}</p>
-            </div>
+          <PhotoCard key={item.photo.photoId} photo={item.photo}>
             {item.recommendedKeep ? (
-              <span className="inline-flex rounded-full bg-green-100 px-2 py-1 text-xs font-medium text-green-800">Recommended keep</span>
+              <Badge tone="success">Recommended keep</Badge>
             ) : (
-              <span className="flex items-center gap-2 text-sm">
+              <label className="flex cursor-pointer items-start gap-3 text-sm text-zinc-200">
                 <input
                   type="checkbox"
-                  checked={selected.has(item.photoId)}
+                  aria-label={`Move ${item.photo.name} to Recycle Bin`}
+                  checked={selected.has(item.photo.photoId)}
                   onChange={(event) => {
                     const next = new Set(selected);
-                    if (event.target.checked) next.add(item.photoId); else next.delete(item.photoId);
+                    if (event.target.checked) next.add(item.photo.photoId);
+                    else next.delete(item.photo.photoId);
                     setSelected(next);
                   }}
+                  className="mt-0.5 h-4 w-4 accent-red-500"
                 />
-                Move to Recycle Bin
-              </span>
+                <span>
+                  Move <strong>{item.photo.name}</strong> to Recycle Bin
+                </span>
+              </label>
             )}
-          </label>
+          </PhotoCard>
         ))}
       </div>
-      <button
-        className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
-        disabled={busy || selected.size === 0}
-        onClick={() => void approve()}
-      >
-        Approve {selected.size} deletion{selected.size === 1 ? "" : "s"}
-      </button>
-      {message && <p className="text-sm">{message}</p>}
+
+      <div className="rounded-xl border border-red-950/80 bg-red-950/30 p-4">
+        <p className="text-sm font-medium text-red-200">Review destructive action</p>
+        <p className="mt-1 text-xs leading-5 text-red-300/80">
+          This never permanently deletes files. Selected verified copies are moved to the OneDrive Recycle Bin and can be restored there.
+        </p>
+        <div className="mt-3 flex flex-wrap items-center gap-3">
+          <Button
+            type="button"
+            variant="danger"
+            disabled={busy || selected.size === 0}
+            onClick={() => void approve()}
+          >
+            {busy ? "Moving…" : `Approve ${selected.size} deletion${selected.size === 1 ? "" : "s"}`}
+          </Button>
+          <span className="text-xs text-zinc-500">{selected.size} reviewed copy{selected.size === 1 ? "" : "ies"} selected</span>
+        </div>
+      </div>
+
+      {message ? <p role="status" className="text-sm text-zinc-200">{message}</p> : null}
     </article>
   );
 }
