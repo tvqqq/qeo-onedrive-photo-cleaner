@@ -61,6 +61,7 @@ it("returns unreviewed photos with full metadata plus category source and confid
       etag: "e1",
       quickxorHash: null,
       sha256: null,
+      tags: [],
     },
     reviewed: false,
     labels: [{ slug: "travel", name: "Travel", source: "local-ai", confidence: 0.78 }],
