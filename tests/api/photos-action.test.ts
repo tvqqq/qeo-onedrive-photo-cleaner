@@ -35,6 +35,8 @@ vi.mock("@/lib/graph/drive", () => ({ DriveApi: class DriveApi {} }));
 vi.mock("@/lib/env", () => ({ env: mocks.env }));
 
 import { POST } from "@/app/api/photos/action/route";
+import { AlbumNotFoundError } from "@/lib/albums/library";
+import { GraphRequestError } from "@/lib/graph/client";
 
 function request(body: unknown, origin = "http://localhost:3000") {
   return new Request("http://localhost:3000/api/photos/action", {
@@ -136,8 +138,33 @@ describe("Library photo actions", () => {
 
     const response = await POST(request({ action: "add-to-album", photoId: "photo-1", albumId: "album-1" }));
 
-    expect(response.status).toBeGreaterThanOrEqual(400);
+    expect(response.status).toBe(403);
     expect(mocks.addPhotoToExistingAlbum).not.toHaveBeenCalled();
+  });
+
+  it("invalidates a stale album catalog only when membership lookup says the album disappeared", async () => {
+    mocks.addPhotoToExistingAlbum.mockRejectedValue(new AlbumNotFoundError());
+
+    const response = await POST(request({ action: "add-to-album", photoId: "photo-1", albumId: "album-1" }));
+
+    expect(response.status).toBe(404);
+    await expect(response.json()).resolves.toEqual({ error: "OneDrive album no longer exists" });
+    expect(mocks.invalidateAlbumCatalog).toHaveBeenCalledTimes(1);
+  });
+
+  it("surfaces a final Graph itemNotFound without retrying or invalidating the catalog", async () => {
+    mocks.addPhotoToExistingAlbum.mockRejectedValue(
+      new GraphRequestError(404, "itemNotFound", "photo disappeared"),
+    );
+
+    const response = await POST(request({ action: "add-to-album", photoId: "photo-1", albumId: "album-1" }));
+
+    expect(response.status).toBe(404);
+    await expect(response.json()).resolves.toEqual({
+      error: "OneDrive photo or album item no longer exists",
+    });
+    expect(mocks.addPhotoToExistingAlbum).toHaveBeenCalledTimes(1);
+    expect(mocks.invalidateAlbumCatalog).not.toHaveBeenCalled();
   });
 
   it("redacts token-shaped values from mutation errors", async () => {
