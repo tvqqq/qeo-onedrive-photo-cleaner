@@ -8,6 +8,8 @@ const DELTA_SELECT = [
   "eTag",
   "createdDateTime",
   "lastModifiedDateTime",
+  "createdBy",
+  "lastModifiedBy",
   "file",
   "folder",
   "photo",

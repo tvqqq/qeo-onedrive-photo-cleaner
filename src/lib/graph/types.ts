@@ -1,3 +1,14 @@
+export interface GraphIdentity {
+  id?: string;
+  displayName?: string;
+}
+
+export interface GraphIdentitySet {
+  user?: GraphIdentity;
+  device?: GraphIdentity;
+  application?: GraphIdentity;
+}
+
 export interface GraphDriveItem {
   id: string;
   name?: string;
@@ -5,6 +16,8 @@ export interface GraphDriveItem {
   eTag?: string;
   createdDateTime?: string;
   lastModifiedDateTime?: string;
+  createdBy?: GraphIdentitySet;
+  lastModifiedBy?: GraphIdentitySet;
   file?: {
     mimeType?: string;
     hashes?: { quickXorHash?: string };
