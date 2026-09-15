@@ -29,9 +29,20 @@ const photo: PhotoMetadata = {
   focalLength: null,
   iso: 80,
   orientation: 1,
+  createdByUserName: null,
+  createdByDeviceName: null,
+  createdByDeviceId: null,
+  createdByApplicationName: null,
+  createdByApplicationId: null,
+  modifiedByUserName: null,
+  modifiedByDeviceName: null,
+  modifiedByDeviceId: null,
+  modifiedByApplicationName: null,
+  modifiedByApplicationId: null,
   etag: "etag-1",
   quickxorHash: null,
   sha256: null,
+  tags: [],
 };
 
 describe("PhotoCard", () => {

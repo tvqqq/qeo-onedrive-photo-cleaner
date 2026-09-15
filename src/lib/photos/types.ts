@@ -1,3 +1,5 @@
+import type { PhotoTag } from "@/lib/tags/types";
+
 export interface PhotoMetadata {
   photoId: string;
   driveItemId: string;
@@ -18,9 +20,20 @@ export interface PhotoMetadata {
   focalLength: number | null;
   iso: number | null;
   orientation: number | null;
+  createdByUserName: string | null;
+  createdByDeviceName: string | null;
+  createdByDeviceId: string | null;
+  createdByApplicationName: string | null;
+  createdByApplicationId: string | null;
+  modifiedByUserName: string | null;
+  modifiedByDeviceName: string | null;
+  modifiedByDeviceId: string | null;
+  modifiedByApplicationName: string | null;
+  modifiedByApplicationId: string | null;
   etag: string | null;
   quickxorHash: string | null;
   sha256: string | null;
+  tags: PhotoTag[];
 }
 
 export type PhotoSort =
@@ -38,6 +51,7 @@ export interface PhotoQuery {
   pageSize: number;
   sort: PhotoSort;
   search?: string;
+  tagSlugs?: string[];
   mimeType?: string;
   category?: string;
   takenFrom?: number;

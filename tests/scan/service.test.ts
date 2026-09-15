@@ -19,11 +19,36 @@ function item(value: Partial<GraphDriveItem> & Pick<GraphDriveItem, "id">): Grap
   return { name: `${value.id}.jpg`, ...value } as GraphDriveItem;
 }
 
+function queuedTagJobCount(db: ReturnType<typeof database>): number {
+  const row = db.prepare(`
+    SELECT COUNT(*) AS count
+    FROM jobs
+    WHERE type = 'tag-photos' AND status = 'queued'
+  `).get() as { count: number };
+  return row.count;
+}
+
 describe("scan service", () => {
   it("recognizes image files but not deleted or non-image items", () => {
     expect(isPhotoCandidate(item({ id: "a", file: { mimeType: "image/jpeg" } }))).toBe(true);
     expect(isPhotoCandidate(item({ id: "b", file: { mimeType: "application/pdf" } }))).toBe(false);
     expect(isPhotoCandidate(item({ id: "c", deleted: { state: "deleted" }, file: { mimeType: "image/jpeg" } }))).toBe(false);
+  });
+
+  it("queues one AI tag follow-up only after a successful terminal page", async () => {
+    const db = database();
+    const jobId = enqueueJob(db, "scan", { mode: "incremental" });
+    claimNextJob(db);
+    const drive = {
+      getDeltaPage: vi.fn().mockResolvedValue({
+        items: [item({ id: "photo-1", file: { mimeType: "image/jpeg" } })],
+        deltaLink: "delta-complete",
+      } satisfies DeltaPage),
+    };
+
+    await runScanJob({ db, drive }, jobId, "incremental");
+
+    expect(queuedTagJobCount(db)).toBe(1);
   });
 
   it("keeps the last delta occurrence and reconciles remote deletions", async () => {
@@ -53,7 +78,7 @@ describe("scan service", () => {
     expect(getScanState(db, "deltaLink")).toBe(page.deltaLink);
   });
 
-  it("persists Graph image dimensions and camera metadata", async () => {
+  it("persists Graph image, camera, and source identity metadata", async () => {
     const db = database();
     const jobId = enqueueJob(db, "scan", { mode: "incremental" });
     claimNextJob(db);
@@ -65,6 +90,16 @@ describe("scan service", () => {
         eTag: "meta-v1",
         createdDateTime: "2026-09-01T01:00:00Z",
         lastModifiedDateTime: "2026-09-02T02:00:00Z",
+        createdBy: {
+          user: { id: "user-1", displayName: "Quyen" },
+          device: { id: "device-iphone", displayName: "iPhone" },
+          application: { id: "onedrive-ios", displayName: "OneDrive" },
+        },
+        lastModifiedBy: {
+          user: { id: "user-2", displayName: "Quyen Tat" },
+          device: { id: "device-mac", displayName: "Mac mini" },
+          application: { id: "onedrive-mac", displayName: "OneDrive" },
+        },
         file: { mimeType: "image/jpeg", hashes: { quickXorHash: "qx-meta" } },
         image: { width: 4032, height: 3024 },
         photo: {
@@ -87,7 +122,7 @@ describe("scan service", () => {
 
     await runScanJob({ db, drive }, jobId, "incremental");
 
-    const photo = findPhotoByDriveId(db, "metadata-photo") as ReturnType<typeof findPhotoByDriveId> & Record<string, unknown>;
+    const photo = findPhotoByDriveId(db, "metadata-photo");
     expect(photo?.width).toBe(4032);
     expect(photo?.height).toBe(3024);
     expect(photo?.cameraMake).toBe("Apple");
@@ -101,6 +136,74 @@ describe("scan service", () => {
     expect(photo?.takenAt).toBe(Date.parse("2026-08-31T03:04:05Z"));
     expect(photo?.remoteCreatedAt).toBe(Date.parse("2026-09-01T01:00:00Z"));
     expect(photo?.remoteModifiedAt).toBe(Date.parse("2026-09-02T02:00:00Z"));
+    expect(photo?.createdByUserName).toBe("Quyen");
+    expect(photo?.createdByDeviceName).toBe("iPhone");
+    expect(photo?.createdByDeviceId).toBe("device-iphone");
+    expect(photo?.createdByApplicationName).toBe("OneDrive");
+    expect(photo?.createdByApplicationId).toBe("onedrive-ios");
+    expect(photo?.modifiedByUserName).toBe("Quyen Tat");
+    expect(photo?.modifiedByDeviceName).toBe("Mac mini");
+    expect(photo?.modifiedByDeviceId).toBe("device-mac");
+    expect(photo?.modifiedByApplicationName).toBe("OneDrive");
+    expect(photo?.modifiedByApplicationId).toBe("onedrive-mac");
+  });
+
+  it("clears stale source identity metadata when a later Graph item omits it", async () => {
+    const db = database();
+    const firstJobId = enqueueJob(db, "scan", { mode: "incremental" });
+    claimNextJob(db);
+    const firstPage: DeltaPage = {
+      items: [item({
+        id: "identity-photo",
+        name: "identity.jpg",
+        size: 1,
+        eTag: "identity-v1",
+        file: { mimeType: "image/jpeg" },
+        createdBy: {
+          user: { displayName: "Quyen" },
+          device: { id: "iphone", displayName: "iPhone" },
+          application: { id: "onedrive-ios", displayName: "OneDrive" },
+        },
+        lastModifiedBy: {
+          user: { displayName: "Quyen" },
+          device: { id: "mac", displayName: "Mac mini" },
+          application: { id: "onedrive-mac", displayName: "OneDrive" },
+        },
+      })],
+      deltaLink: "delta-1",
+    };
+    const firstDrive = { getDeltaPage: vi.fn().mockResolvedValue(firstPage) };
+
+    await runScanJob({ db, drive: firstDrive }, firstJobId, "incremental");
+    expect(findPhotoByDriveId(db, "identity-photo")?.createdByDeviceName).toBe("iPhone");
+
+    const secondJobId = enqueueJob(db, "scan", { mode: "incremental" });
+    claimNextJob(db);
+    const secondPage: DeltaPage = {
+      items: [item({
+        id: "identity-photo",
+        name: "identity.jpg",
+        size: 1,
+        eTag: "identity-v2",
+        file: { mimeType: "image/jpeg" },
+      })],
+      deltaLink: "delta-2",
+    };
+    const secondDrive = { getDeltaPage: vi.fn().mockResolvedValue(secondPage) };
+
+    await runScanJob({ db, drive: secondDrive }, secondJobId, "incremental");
+
+    const photo = findPhotoByDriveId(db, "identity-photo");
+    expect(photo?.createdByUserName).toBeNull();
+    expect(photo?.createdByDeviceName).toBeNull();
+    expect(photo?.createdByDeviceId).toBeNull();
+    expect(photo?.createdByApplicationName).toBeNull();
+    expect(photo?.createdByApplicationId).toBeNull();
+    expect(photo?.modifiedByUserName).toBeNull();
+    expect(photo?.modifiedByDeviceName).toBeNull();
+    expect(photo?.modifiedByDeviceId).toBeNull();
+    expect(photo?.modifiedByApplicationName).toBeNull();
+    expect(photo?.modifiedByApplicationId).toBeNull();
   });
 
   it("checkpoints nextLink and committed photos before a later page fails", async () => {
@@ -119,5 +222,6 @@ describe("scan service", () => {
 
     expect(findPhotoByDriveId(db, "page-1")).not.toBeNull();
     expect((getJob(db, jobId)?.payload as { nextLink?: string }).nextLink).toBe(nextLink);
+    expect(queuedTagJobCount(db)).toBe(0);
   });
 });

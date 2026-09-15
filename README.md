@@ -4,13 +4,14 @@ Local-first OneDrive photo maintenance for a personal Microsoft account. It inde
 
 ## Safety model
 
-- Originals stay in OneDrive; the app stores metadata, hashes, thumbnails, review state, and local model data under `/data`.
+- Originals stay in OneDrive; the app stores metadata, hashes, thumbnails, review state, Qeo tags, and local model data under `/data`.
 - Exact duplicate deletion requires streamed SHA-256 verification and explicit review. Normal OneDrive delete is used so items go to the Recycle Bin.
+- Single-photo Library deletion also uses normal Graph DELETE only, requires the server-loaded local ETag to match the current Graph ETag, and never exposes permanent delete.
 - Similar-photo detection is heuristic only and never exposes an automatic delete path.
-- Album sync only adds reviewed, non-deleted photos. The current safety policy never automatically removes existing album members.
-- Camera/exposure metadata comes from Microsoft Graph when available. Originals are not downloaded merely to extract EXIF metadata.
-- Local classification runs with Transformers.js/CLIP. No cloud vision API is required.
-- `DEMO_MODE=1` blocks destructive OneDrive operations.
+- Album sync only adds reviewed, non-deleted photos. Library album actions only add to an existing OneDrive album; they never create or remove album membership automatically.
+- Camera/exposure and source identity metadata come from Microsoft Graph when available. The app never infers the uploader device from camera model, path, filename, or application heuristics.
+- Local classification and Qeo AI Tags run with Transformers.js/CLIP. No cloud vision API is required.
+- `DEMO_MODE=1` blocks destructive OneDrive operations and album mutations.
 
 ## Requirements
 
@@ -67,7 +68,7 @@ Open `http://localhost:3000`, then use **Settings → Connect OneDrive**. Docker
 
 - `web` — Next.js UI/API.
 - `worker` — core lane for `scan` and `verify-exact` jobs.
-- `worker-ml` — ML lane for `classify` and `find-similar` jobs.
+- `worker-ml` — ML lane for `classify`, `find-similar`, and `tag-photos` jobs.
 
 Separating the lanes means a long local CLIP job does not prevent a new scan from starting. Each lane still runs one job at a time and both use the same restart-safe SQLite queue.
 
@@ -105,6 +106,25 @@ docker compose ps
 
 After startup, `docker compose ps` should show `web`, `worker`, and `worker-ml`. Do **not** use `docker compose down -v`; the existing SQLite queue, auth state, metadata, review state, and caches should remain in the persistent volume.
 
+## Upgrade from v0.2.1 to v0.3
+
+v0.3 migrates the existing SQLite database in place to schema v3. No auth reconnect and no database or `/data` reset is required.
+
+```bash
+git pull
+docker compose down
+docker compose up -d --build
+docker compose ps
+```
+
+Then:
+
+1. Run one **Full Scan** to backfill Microsoft Graph source identity metadata.
+2. Click **Generate AI Tags** once for the initial full-library backfill. If the scan already queued the same active `tag-photos` job, the action reuses that job rather than creating a duplicate.
+3. Subsequent scans automatically queue or reuse incremental AI-tag work for photos whose ETag/model/taxonomy state changed.
+
+**Do not use `docker compose down -v`.** The v0.3 migration is intentionally in-place and preserves the production `/data` volume.
+
 ## Tailnet-only access with Tailscale Serve
 
 Keep Docker bound to `127.0.0.1:3000`; do not publish port 3000 on the LAN/WAN. On the host running Docker and Tailscale:
@@ -128,13 +148,16 @@ The Microsoft redirect URI remains the localhost callback above. Perform initial
 
 ## Workflow
 
-1. **Scan** → run a Full Scan for initial indexing/backfill, then use Incremental Scan for normal updates.
-2. **Photos** → browse indexed photos with server-side search, MIME/category/date filters, sorting, pagination, and a read-only metadata detail view.
-3. **Duplicates** → verify exact candidates with SHA-256, choose non-keepers, and explicitly approve Recycle Bin deletion.
-4. **Similar photos** → run local dHash + CLIP heuristics; review only, with no delete control.
-5. **Categories** → run local classification, inspect photo metadata, manually correct labels, and mark reviewed.
-6. **OneDrive albums** → sync reviewed category members; reruns are idempotent and only add missing members.
-7. **Settings** → inspect connection/runtime/model paths, tune duplicate thresholds, or clear only the thumbnail cache.
+1. **Scan** → run a Full Scan for initial indexing/backfill, then use Incremental Scan for normal updates. Completed scans queue/reuse incremental Qeo AI tagging without blocking the core worker.
+2. **Photos / Library** → browse indexed photos with server-side search, MIME/category/date filters, sorting, pagination, and rich detail metadata. Use `#tag` tokens such as `#family #travel`; multiple tags use AND semantics.
+3. **Qeo Tags** → generate local CLIP-backed AI tags, add/remove manual tags from Photo Detail, and use quick tag filters. Qeo tags stay in local SQLite and are not written to OneDrive metadata.
+4. **Existing OneDrive albums** → from Photo Detail, lazily browse existing Photos albums and add the current photo. Repeated adds are idempotent membership no-ops; Library never creates a new album.
+5. **Single-photo delete** → use the explicit two-step Danger Zone confirmation to move a photo to the **OneDrive Recycle Bin**. The server re-checks the live Graph ETag before deleting.
+6. **Duplicates** → verify exact candidates with SHA-256, choose non-keepers, and explicitly approve Recycle Bin deletion.
+7. **Similar photos** → run local dHash + CLIP heuristics; review only, with no delete control.
+8. **Categories** → run local classification, inspect photo metadata, manually correct labels, and mark reviewed.
+9. **Category albums** → sync reviewed category members; reruns are idempotent and only add missing members.
+10. **Settings** → inspect connection/runtime/model paths, tune duplicate thresholds, or clear only the thumbnail cache.
 
 Default similar-photo thresholds are conservative:
 
@@ -143,7 +166,9 @@ Default similar-photo thresholds are conservative:
 
 ## Metadata behavior
 
-The photo index stores Microsoft Graph metadata when Graph exposes it, including dimensions, capture/modified times, camera make/model, exposure fraction, f-number, focal length, ISO, and orientation. Missing Graph fields remain nullable and are simply omitted from the UI.
+The photo index stores Microsoft Graph metadata when Graph exposes it, including dimensions, capture/modified times, camera make/model, exposure fraction, f-number, focal length, ISO, orientation, and best-effort source identities for **Uploaded/created by** and **Last modified by**.
+
+Microsoft Graph may omit device identity. The app displays only what Graph actually provides and never infers upload device from camera metadata, filename, path, or other heuristics. Missing Graph fields remain nullable and are omitted from the UI.
 
 This metadata path does not download original photo files. Original bytes are streamed only where required for existing cleanup behavior such as SHA-256 exact-duplicate verification; thumbnails continue to flow through the local thumbnail cache API.
 
@@ -160,7 +185,7 @@ Run the core worker separately:
 WORKER_LANE=core npm run worker
 ```
 
-Run the ML worker in another terminal when testing classification/similarity jobs:
+Run the ML worker in another terminal when testing classification/similarity/tag jobs:
 
 ```bash
 WORKER_LANE=ml npm run worker
@@ -180,7 +205,8 @@ npm run build
 Persistent state lives under `DATA_DIR` (default `/data`):
 
 - SQLite application database and encrypted MSAL token cache
+- local Qeo tags and AI tag state in SQLite
 - `cache/thumbnails/` — disposable thumbnail cache
 - `models/` — local Transformers.js model cache
 
-The **Clear thumbnail cache** setting deletes only `cache/thumbnails/`; it does not delete indexed database records, review state, originals, authentication data, or model files.
+The **Clear thumbnail cache** setting deletes only `cache/thumbnails/`; it does not delete indexed database records, review/tag state, originals, authentication data, or model files.

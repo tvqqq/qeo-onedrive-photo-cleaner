@@ -4,7 +4,15 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { createDatabase } from "@/lib/db/client";
 import { migrateDatabase } from "@/lib/db/migrate";
-import { claimNextJob, enqueueJob, getJob, requeueInterruptedJobs } from "@/lib/jobs/repository";
+import {
+  claimNextJob,
+  enqueueJob,
+  enqueueJobIfIdle,
+  failJob,
+  finishJob,
+  getJob,
+  requeueInterruptedJobs,
+} from "@/lib/jobs/repository";
 
 function createTestDatabase() {
   const dir = mkdtempSync(join(tmpdir(), "qeo-photo-db-"));
@@ -41,6 +49,31 @@ describe("job repository", () => {
 
     expect(claimNextJob(db, "ml")?.id).toBe(similarId);
     expect(getJob(db, scanId)?.status).toBe("queued");
+  });
+
+  it("assigns tag-photos only to the ML lane", () => {
+    const db = createTestDatabase();
+    const tagJobId = enqueueJob(db, "tag-photos", {});
+
+    expect(claimNextJob(db, "core")).toBeNull();
+    expect(claimNextJob(db, "ml")?.id).toBe(tagJobId);
+  });
+
+  it("deduplicates active jobs and creates fresh jobs after terminal states", () => {
+    const db = createTestDatabase();
+    const first = enqueueJobIfIdle(db, "tag-photos", {});
+
+    expect(enqueueJobIfIdle(db, "tag-photos", {})).toBe(first);
+
+    finishJob(db, first);
+    const second = enqueueJobIfIdle(db, "tag-photos", {});
+    expect(second).not.toBe(first);
+    expect(getJob(db, second)?.status).toBe("queued");
+
+    failJob(db, second, "failed");
+    const third = enqueueJobIfIdle(db, "tag-photos", {});
+    expect(third).not.toBe(second);
+    expect(getJob(db, third)?.status).toBe("queued");
   });
 
   it("requeues only interrupted jobs owned by the starting lane", () => {

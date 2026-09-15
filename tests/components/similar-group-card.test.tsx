@@ -28,9 +28,20 @@ function photo(photoId: string, name: string): PhotoMetadata {
     focalLength: 24,
     iso: 80,
     orientation: 1,
+    createdByUserName: null,
+    createdByDeviceName: null,
+    createdByDeviceId: null,
+    createdByApplicationName: null,
+    createdByApplicationId: null,
+    modifiedByUserName: null,
+    modifiedByDeviceName: null,
+    modifiedByDeviceId: null,
+    modifiedByApplicationName: null,
+    modifiedByApplicationId: null,
     etag: `etag-${photoId}`,
     quickxorHash: null,
     sha256: null,
+    tags: [],
   };
 }
 

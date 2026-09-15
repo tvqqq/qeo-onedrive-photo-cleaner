@@ -7,7 +7,12 @@ import {
   upsertPhoto,
 } from "@/lib/db/repositories";
 import type { DeltaPage, GraphDriveItem } from "@/lib/graph/types";
-import { getJob, updateJobPayload, updateJobProgress } from "@/lib/jobs/repository";
+import {
+  enqueueJobIfIdle,
+  getJob,
+  updateJobPayload,
+  updateJobProgress,
+} from "@/lib/jobs/repository";
 
 export type ScanMode = "full" | "incremental";
 
@@ -72,7 +77,10 @@ export async function runScanJob(
       throw error;
     }
 
-    if (!page.nextLink) return;
+    if (!page.nextLink) {
+      enqueueJobIfIdle(context.db, "tag-photos", {});
+      return;
+    }
     nextLink = page.nextLink;
   }
 }

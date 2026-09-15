@@ -14,13 +14,64 @@ describe("DriveApi", () => {
     const page = await drive.getDeltaPage();
 
     expect(json).toHaveBeenCalledWith(expect.stringContaining("/me/drive/root/delta?$select="));
-    expect(String(json.mock.calls[0]![0])).toContain("photo");
-    expect(String(json.mock.calls[0]![0])).toContain("image");
+    const path = String(json.mock.calls[0]![0]);
+    expect(path).toContain("photo");
+    expect(path).toContain("image");
+    expect(path).toContain("createdBy");
+    expect(path).toContain("lastModifiedBy");
     expect(page.nextLink).toBe("https://graph.microsoft.com/v1.0/next?a=b");
     expect(page.deltaLink).toBe("https://graph.microsoft.com/v1.0/delta?token=opaque");
 
     await drive.getDeltaPage(page.nextLink);
     expect(json).toHaveBeenNthCalledWith(2, page.nextLink);
+  });
+
+  it("lists only existing photo albums across pages and sorts deterministically", async () => {
+    const nextLink = "https://graph.microsoft.com/v1.0/drive/bundles?skiptoken=next";
+    const json = vi.fn()
+      .mockResolvedValueOnce({
+        value: [
+          { id: "album-b", name: "Travel", bundle: { album: {} } },
+          { id: "folder-1", name: "Folder" },
+          { id: "blank", name: "   ", bundle: { album: {} } },
+        ],
+        "@odata.nextLink": nextLink,
+      })
+      .mockResolvedValueOnce({
+        value: [
+          { id: "album-c", name: "family", bundle: { album: {} } },
+          { id: "album-a", name: "Family", bundle: { album: {} } },
+        ],
+      });
+    const drive = new DriveApi({ json } as unknown as GraphClient);
+
+    await expect(drive.listAlbums()).resolves.toEqual([
+      { id: "album-a", name: "Family" },
+      { id: "album-c", name: "family" },
+      { id: "album-b", name: "Travel" },
+    ]);
+    expect(json).toHaveBeenNthCalledWith(
+      1,
+      "/drive/bundles?$filter=bundle/album ne null&$select=id,name,bundle",
+    );
+    expect(json).toHaveBeenNthCalledWith(2, nextLink);
+  });
+
+  it("lists album member ids across Graph pagination", async () => {
+    const nextLink = "https://graph.microsoft.com/v1.0/drive/bundles/album%2F1/children?skiptoken=next";
+    const json = vi.fn()
+      .mockResolvedValueOnce({
+        value: [{ id: "photo-1" }, { id: "photo-2" }],
+        "@odata.nextLink": nextLink,
+      })
+      .mockResolvedValueOnce({ value: [{ id: "photo-3" }, {}] });
+    const drive = new DriveApi({ json } as unknown as GraphClient);
+
+    const ids = await drive.listAlbumItemIds("album/1");
+
+    expect([...ids]).toEqual(["photo-1", "photo-2", "photo-3"]);
+    expect(json).toHaveBeenNthCalledWith(1, "/drive/bundles/album%2F1/children?$select=id");
+    expect(json).toHaveBeenNthCalledWith(2, nextLink);
   });
 
   it("uses If-Match for reviewed recycle-bin deletion", async () => {

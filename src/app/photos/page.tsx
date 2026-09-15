@@ -1,12 +1,15 @@
 import Link from "next/link";
+import { GenerateAiTagsButton } from "@/components/generate-ai-tags-button";
 import { PhotosFilterBar } from "@/components/photos-filter-bar";
 import { PhotosGrid } from "@/components/photos-grid";
+import { TagFilterBar } from "@/components/tag-filter-bar";
 import { buttonClass } from "@/components/ui/button";
 import { PageHeader } from "@/components/ui/page-header";
 import { openAppDatabase } from "@/lib/db/client";
 import { migrateDatabase } from "@/lib/db/migrate";
 import { normalizePhotoQuery } from "@/lib/photos/query";
 import { listPhotos } from "@/lib/photos/repository";
+import { listTagCounts } from "@/lib/tags/repository";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -37,10 +40,12 @@ export default async function PhotosPage({
   const query = normalizePhotoQuery(params);
   const db = openAppDatabase();
   let result;
+  let tagCounts;
 
   try {
     migrateDatabase(db);
     result = listPhotos(db, query);
+    tagCounts = listTagCounts(db, 24);
   } finally {
     db.close();
   }
@@ -50,13 +55,17 @@ export default async function PhotosPage({
 
   return (
     <main className="mx-auto max-w-[1600px] space-y-6 p-4 sm:p-6 lg:p-8">
-      <PageHeader
-        eyebrow="Library"
-        title="Photos"
-        description="Browse your indexed OneDrive photo library with server-side search, filters, sorting, and rich Graph metadata."
-      />
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <PageHeader
+          eyebrow="Library"
+          title="Photos"
+          description="Browse your indexed OneDrive photo library with server-side search, filters, sorting, and rich Graph metadata."
+        />
+        <GenerateAiTagsButton />
+      </div>
 
       <PhotosFilterBar query={query} />
+      <TagFilterBar tags={tagCounts} />
 
       <div className="flex flex-col gap-2 text-sm text-zinc-400 sm:flex-row sm:items-center sm:justify-between">
         <p>{result.total === 0 ? "0 photos" : `Showing ${first}–${last} of ${result.total} photos`}</p>

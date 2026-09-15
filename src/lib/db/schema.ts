@@ -1,4 +1,4 @@
-export const SCHEMA_VERSION = 2;
+export const SCHEMA_VERSION = 3;
 
 export const INITIAL_SCHEMA = `
 CREATE TABLE IF NOT EXISTS drive_nodes (
@@ -37,6 +37,16 @@ CREATE TABLE IF NOT EXISTS photos (
   focal_length REAL,
   iso INTEGER,
   orientation INTEGER,
+  created_by_user_name TEXT,
+  created_by_device_name TEXT,
+  created_by_device_id TEXT,
+  created_by_application_name TEXT,
+  created_by_application_id TEXT,
+  modified_by_user_name TEXT,
+  modified_by_device_name TEXT,
+  modified_by_device_id TEXT,
+  modified_by_application_name TEXT,
+  modified_by_application_id TEXT,
   etag TEXT,
   deleted_remote_at INTEGER,
   classification_reviewed INTEGER NOT NULL DEFAULT 0,
@@ -123,6 +133,35 @@ CREATE TABLE IF NOT EXISTS photo_categories (
 );
 CREATE INDEX IF NOT EXISTS photo_categories_category_photo_idx ON photo_categories(category_id, photo_id);
 
+CREATE TABLE IF NOT EXISTS tags (
+  id TEXT PRIMARY KEY,
+  slug TEXT NOT NULL UNIQUE,
+  name TEXT NOT NULL,
+  created_at INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS photo_tags (
+  photo_id TEXT NOT NULL REFERENCES photos(id) ON DELETE CASCADE,
+  tag_id TEXT NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
+  confidence REAL,
+  source TEXT NOT NULL CHECK(source IN ('ai','manual')),
+  state TEXT NOT NULL CHECK(state IN ('active','removed')),
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL,
+  PRIMARY KEY(photo_id, tag_id)
+);
+CREATE INDEX IF NOT EXISTS photo_tags_tag_photo_idx ON photo_tags(tag_id, photo_id);
+CREATE INDEX IF NOT EXISTS photo_tags_photo_state_idx ON photo_tags(photo_id, state);
+
+CREATE TABLE IF NOT EXISTS photo_tag_state (
+  photo_id TEXT PRIMARY KEY REFERENCES photos(id) ON DELETE CASCADE,
+  tagged_etag TEXT,
+  model_id TEXT NOT NULL,
+  taxonomy_version TEXT NOT NULL,
+  tagged_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS photo_tag_state_etag_idx ON photo_tag_state(tagged_etag);
+
 CREATE TABLE IF NOT EXISTS album_sync (
   category_id TEXT PRIMARY KEY REFERENCES categories(id) ON DELETE CASCADE,
   onedrive_bundle_id TEXT,
@@ -167,4 +206,46 @@ CREATE INDEX IF NOT EXISTS photos_mime_idx ON photos(mime_type);
 CREATE INDEX IF NOT EXISTS photos_camera_make_idx ON photos(camera_make);
 CREATE INDEX IF NOT EXISTS photos_camera_model_idx ON photos(camera_model);
 CREATE INDEX IF NOT EXISTS photo_categories_category_photo_idx ON photo_categories(category_id, photo_id);
+`;
+
+export const MIGRATION_V3 = `
+ALTER TABLE photos ADD COLUMN created_by_user_name TEXT;
+ALTER TABLE photos ADD COLUMN created_by_device_name TEXT;
+ALTER TABLE photos ADD COLUMN created_by_device_id TEXT;
+ALTER TABLE photos ADD COLUMN created_by_application_name TEXT;
+ALTER TABLE photos ADD COLUMN created_by_application_id TEXT;
+ALTER TABLE photos ADD COLUMN modified_by_user_name TEXT;
+ALTER TABLE photos ADD COLUMN modified_by_device_name TEXT;
+ALTER TABLE photos ADD COLUMN modified_by_device_id TEXT;
+ALTER TABLE photos ADD COLUMN modified_by_application_name TEXT;
+ALTER TABLE photos ADD COLUMN modified_by_application_id TEXT;
+
+CREATE TABLE IF NOT EXISTS tags (
+  id TEXT PRIMARY KEY,
+  slug TEXT NOT NULL UNIQUE,
+  name TEXT NOT NULL,
+  created_at INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS photo_tags (
+  photo_id TEXT NOT NULL REFERENCES photos(id) ON DELETE CASCADE,
+  tag_id TEXT NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
+  confidence REAL,
+  source TEXT NOT NULL CHECK(source IN ('ai','manual')),
+  state TEXT NOT NULL CHECK(state IN ('active','removed')),
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL,
+  PRIMARY KEY(photo_id, tag_id)
+);
+CREATE INDEX IF NOT EXISTS photo_tags_tag_photo_idx ON photo_tags(tag_id, photo_id);
+CREATE INDEX IF NOT EXISTS photo_tags_photo_state_idx ON photo_tags(photo_id, state);
+
+CREATE TABLE IF NOT EXISTS photo_tag_state (
+  photo_id TEXT PRIMARY KEY REFERENCES photos(id) ON DELETE CASCADE,
+  tagged_etag TEXT,
+  model_id TEXT NOT NULL,
+  taxonomy_version TEXT NOT NULL,
+  tagged_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS photo_tag_state_etag_idx ON photo_tag_state(tagged_etag);
 `;

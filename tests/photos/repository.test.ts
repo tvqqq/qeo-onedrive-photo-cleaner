@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import { createDatabase } from "@/lib/db/client";
 import { migrateDatabase } from "@/lib/db/migrate";
 import { listPhotos } from "@/lib/photos/repository";
+import { applyManualTag, ensureAiVocabulary } from "@/lib/tags/repository";
 
 function database() {
   const db = createDatabase(join(mkdtempSync(join(tmpdir(), "qeo-photos-")), "test.db"));
@@ -27,6 +28,13 @@ function database() {
     insertNode.run(`drive-${id}`, name, now);
     insertPhoto.run(id, `drive-${id}`, name, path, size, mime, width, height, taken, modified, make, model, now, now);
   }
+  db.prepare(`
+    UPDATE photos SET
+      created_by_device_name = 'iPhone',
+      created_by_application_name = 'OneDrive',
+      modified_by_device_name = 'Mac mini'
+    WHERE id = 'phone'
+  `).run();
   db.prepare("INSERT INTO categories(id,slug,name) VALUES ('travel','travel','Travel')").run();
   db.prepare("INSERT INTO photo_categories(photo_id,category_id,source,manual_state) VALUES ('trip','travel','manual','added')").run();
   db.prepare("INSERT INTO photo_categories(photo_id,category_id,source,manual_state) VALUES ('phone','travel','manual','removed')").run();
@@ -48,6 +56,20 @@ describe("listPhotos", () => {
     db.close();
   });
 
+  it("maps source identity metadata onto PhotoMetadata", () => {
+    const db = database();
+
+    const phone = listPhotos(db, { page: 1, pageSize: 60, sort: "name-asc" }).items
+      .find((photo) => photo.photoId === "phone");
+
+    expect(phone?.createdByDeviceName).toBe("iPhone");
+    expect(phone?.createdByApplicationName).toBe("OneDrive");
+    expect(phone?.modifiedByDeviceName).toBe("Mac mini");
+    expect(phone?.createdByUserName).toBeNull();
+    expect(phone?.modifiedByApplicationId).toBeNull();
+    db.close();
+  });
+
   it("filters MIME, category, and captured date without including manual removals", () => {
     const db = database();
     expect(listPhotos(db, { page: 1, pageSize: 60, sort: "taken-desc", mimeType: "image/png" }).items.map((p) => p.name))
@@ -61,6 +83,23 @@ describe("listPhotos", () => {
       takenFrom: Date.parse("2026-01-01T00:00:00Z"),
       takenTo: Date.parse("2026-01-31T23:59:59.999Z"),
     }).items.map((p) => p.name)).toEqual(["trip.jpg", "phone.jpg"]);
+    db.close();
+  });
+
+  it("requires every requested hashtag and ignores removed tag state", () => {
+    const db = database();
+    ensureAiVocabulary(db);
+    applyManualTag(db, "phone", "Document", "active");
+    applyManualTag(db, "phone", "Screenshot", "active");
+    applyManualTag(db, "trip", "Document", "active");
+    applyManualTag(db, "trip", "Screenshot", "removed");
+
+    expect(listPhotos(db, {
+      page: 1,
+      pageSize: 60,
+      sort: "taken-desc",
+      tagSlugs: ["document", "screenshot"],
+    }).items.map((p) => p.name)).toEqual(["phone.jpg"]);
     db.close();
   });
 

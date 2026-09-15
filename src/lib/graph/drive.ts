@@ -1,5 +1,11 @@
 import { GraphClient } from "./client";
-import type { DeltaPage, GraphDeltaResponse, GraphDriveItem } from "./types";
+import type {
+  DeltaPage,
+  DriveAlbum,
+  GraphCollectionResponse,
+  GraphDeltaResponse,
+  GraphDriveItem,
+} from "./types";
 
 const DELTA_SELECT = [
   "id",
@@ -8,6 +14,8 @@ const DELTA_SELECT = [
   "eTag",
   "createdDateTime",
   "lastModifiedDateTime",
+  "createdBy",
+  "lastModifiedBy",
   "file",
   "folder",
   "photo",
@@ -17,6 +25,7 @@ const DELTA_SELECT = [
 ].join(",");
 
 const INITIAL_DELTA_PATH = `/me/drive/root/delta?$select=${DELTA_SELECT}`;
+const ALBUMS_PATH = "/drive/bundles?$filter=bundle/album ne null&$select=id,name,bundle";
 
 function itemPath(itemId: string) {
   return `/me/drive/items/${encodeURIComponent(itemId)}`;
@@ -54,6 +63,37 @@ export class DriveApi {
       method: "DELETE",
       ...(ifMatch ? { headers: { "If-Match": ifMatch } } : {}),
     });
+  }
+
+  async listAlbums(): Promise<DriveAlbum[]> {
+    const albums: DriveAlbum[] = [];
+    let next: string | undefined = ALBUMS_PATH;
+    while (next) {
+      const response: GraphCollectionResponse<GraphDriveItem> =
+        await this.graph.json<GraphCollectionResponse<GraphDriveItem>>(next);
+      for (const item of response.value ?? []) {
+        if (!item.bundle?.album || !item.id || !item.name?.trim()) continue;
+        albums.push({ id: item.id, name: item.name });
+      }
+      next = response["@odata.nextLink"];
+    }
+    return albums.sort((a, b) =>
+      a.name.localeCompare(b.name, undefined, { sensitivity: "base" }) || a.id.localeCompare(b.id),
+    );
+  }
+
+  async listAlbumItemIds(albumId: string): Promise<Set<string>> {
+    const ids = new Set<string>();
+    let next: string | undefined = `/drive/bundles/${encodeURIComponent(albumId)}/children?$select=id`;
+    while (next) {
+      const response: GraphCollectionResponse<GraphDriveItem> =
+        await this.graph.json<GraphCollectionResponse<GraphDriveItem>>(next);
+      for (const item of response.value ?? []) {
+        if (item.id) ids.add(item.id);
+      }
+      next = response["@odata.nextLink"];
+    }
+    return ids;
   }
 
   async createAlbum(name: string, itemIds: string[] = []): Promise<string> {

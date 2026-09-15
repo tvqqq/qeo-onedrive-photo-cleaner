@@ -1,7 +1,12 @@
 import { fileURLToPath } from "node:url";
 import type { AppDatabase } from "@/lib/db/client";
 import { openAppDatabase } from "@/lib/db/client";
-import { INITIAL_SCHEMA, MIGRATION_V2, SCHEMA_VERSION } from "@/lib/db/schema";
+import { INITIAL_SCHEMA, MIGRATION_V2, MIGRATION_V3, SCHEMA_VERSION } from "@/lib/db/schema";
+
+const MIGRATIONS: Record<number, string> = {
+  2: MIGRATION_V2,
+  3: MIGRATION_V3,
+};
 
 export function migrateDatabase(db: AppDatabase): void {
   db.exec(`
@@ -27,10 +32,11 @@ export function migrateDatabase(db: AppDatabase): void {
       );
     } else {
       for (let version = currentVersion + 1; version <= SCHEMA_VERSION; version += 1) {
-        if (version !== 2) {
+        const migration = MIGRATIONS[version];
+        if (!migration) {
           throw new Error(`Missing database migration for version ${version}`);
         }
-        db.exec(MIGRATION_V2);
+        db.exec(migration);
         db.prepare("INSERT INTO schema_migrations(version, applied_at) VALUES (?, ?)").run(
           version,
           Date.now(),

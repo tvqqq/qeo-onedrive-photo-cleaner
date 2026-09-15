@@ -4,7 +4,7 @@ import type { JobRecord, JobType, WorkerLane } from "@/lib/jobs/types";
 
 const JOB_TYPES_BY_LANE = {
   core: ["scan", "verify-exact"],
-  ml: ["classify", "find-similar"],
+  ml: ["classify", "find-similar", "tag-photos"],
 } as const satisfies Record<WorkerLane, readonly JobType[]>;
 
 type JobRow = {
@@ -49,6 +49,28 @@ export function enqueueJob(db: AppDatabase, type: JobType, payload: unknown): st
     VALUES (?, ?, 'queued', ?, ?, ?)
   `).run(id, type, JSON.stringify(payload), now, now);
   return id;
+}
+
+export function enqueueJobIfIdle(
+  db: AppDatabase,
+  type: JobType,
+  payload: unknown,
+): string {
+  db.exec("BEGIN IMMEDIATE");
+  try {
+    const existing = db.prepare(`
+      SELECT id FROM jobs
+      WHERE type = ? AND status IN ('queued', 'running')
+      ORDER BY created_at ASC, id ASC
+      LIMIT 1
+    `).get(type) as { id: string } | undefined;
+    const id = existing?.id ?? enqueueJob(db, type, payload);
+    db.exec("COMMIT");
+    return id;
+  } catch (error) {
+    db.exec("ROLLBACK");
+    throw error;
+  }
 }
 
 export function getJob(db: AppDatabase, id: string): JobRecord | null {

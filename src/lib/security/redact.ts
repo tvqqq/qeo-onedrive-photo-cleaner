@@ -1,10 +1,12 @@
 const SENSITIVE_KEY = /(authorization|cookie|credential|password|secret|token)/i;
 const TOKEN_SHAPED = /^[A-Za-z0-9_-]{2,}\.[A-Za-z0-9_-]{2,}\.[A-Za-z0-9_-]{2,}$/;
+const TOKEN_SHAPED_IN_TEXT = /[A-Za-z0-9_-]{2,}\.[A-Za-z0-9_-]{2,}\.[A-Za-z0-9_-]{2,}/g;
 const REDACTED = "[REDACTED]";
 
 export function redact(value: unknown): unknown {
   if (typeof value === "string") {
-    return TOKEN_SHAPED.test(value) ? REDACTED : value;
+    if (TOKEN_SHAPED.test(value)) return REDACTED;
+    return value.replace(TOKEN_SHAPED_IN_TEXT, REDACTED);
   }
   if (Array.isArray(value)) {
     return value.map(redact);
