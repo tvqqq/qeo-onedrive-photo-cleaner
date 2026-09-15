@@ -51,6 +51,20 @@ export function enqueueJob(db: AppDatabase, type: JobType, payload: unknown): st
   return id;
 }
 
+export function enqueueJobIfNotActive(
+  db: AppDatabase,
+  type: JobType,
+  payload: unknown,
+): string {
+  const existing = db.prepare(`
+    SELECT id FROM jobs
+    WHERE type = ? AND status IN ('queued', 'running')
+    ORDER BY created_at ASC, id ASC
+    LIMIT 1
+  `).get(type) as { id: string } | undefined;
+  return existing?.id ?? enqueueJob(db, type, payload);
+}
+
 export function getJob(db: AppDatabase, id: string): JobRecord | null {
   const row = db.prepare("SELECT * FROM jobs WHERE id = ?").get(id) as JobRow | undefined;
   return row ? mapRow(row) : null;
