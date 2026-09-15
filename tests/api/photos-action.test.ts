@@ -140,6 +140,15 @@ describe("Library photo actions", () => {
     expect(mocks.addPhotoToExistingAlbum).not.toHaveBeenCalled();
   });
 
+  it("redacts token-shaped values from mutation errors", async () => {
+    mocks.deleteLibraryPhoto.mockRejectedValue(new Error("Graph failed with abc.def.ghi"));
+
+    const response = await POST(request({ action: "delete", photoId: "photo-1" }));
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toEqual({ error: "Graph failed with [REDACTED]" });
+  });
+
   it("blocks cross-origin mutation before opening the database", async () => {
     const response = await POST(request({ action: "generate-tags" }, "https://evil.example"));
 
